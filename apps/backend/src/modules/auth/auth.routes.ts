@@ -14,13 +14,9 @@ router.post('/register', validate(RegisterDto), (req, res, next) =>
   authController.register(req, res, next)
 )
 
-router.post('/login', validate(LoginDto), (req, res, next) =>
-  authController.login(req, res, next)
-)
+router.post('/login', validate(LoginDto), (req, res, next) => authController.login(req, res, next))
 
-router.post('/logout', requireAuth, (req, res, next) =>
-  authController.logout(req, res, next)
-)
+router.post('/logout', requireAuth, (req, res, next) => authController.logout(req, res, next))
 
 router.post('/forgot-password', validate(ForgotPasswordDto), (req, res, next) =>
   authController.forgotPassword(req, res, next)
@@ -30,13 +26,10 @@ router.post('/reset-password', validate(ResetPasswordDto), (req, res, next) =>
   authController.resetPassword(req, res, next)
 )
 
-router.get('/me', requireAuth, (req, res, next) =>
-  authController.getMe(req, res, next)
-)
+router.get('/me', requireAuth, (req, res, next) => authController.getMe(req, res, next))
 
 router.get('/admin-check', ...requireRole(ROLES.ADMIN), (req, res, next) =>
   authController.adminCheck(req, res, next)
 )
 
 export default router
-

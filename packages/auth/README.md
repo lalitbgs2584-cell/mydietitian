@@ -5,15 +5,18 @@ Shared authentication module configuring Better Auth with PostgreSQL (via `@mydi
 ## Exports
 
 ### 1. `@mydietitian/auth/auth`
+
 - `auth`: The initialized Better Auth instance.
 - `Auth`: Type export (`typeof auth`).
 
 ### 2. `@mydietitian/auth/roles`
+
 - `ROLES`: Object constant with `USER: 'user'`, `ADMIN: 'admin'`.
 - `Role`: Union type of roles (`'user' | 'admin'`).
 - `isAdmin(role)`: Helper function.
 
 ### 3. `@mydietitian/auth/password-policy`
+
 - `passwordSchema`: Zod schema enforcing:
   - Length: 8 to 72 characters
   - At least one uppercase letter (`[A-Z]`)

@@ -26,5 +26,9 @@
   "workspaces": [
     "apps/*",
     "packages/*"
-  ]
+  ],
+  "overrides": {
+    "@babel/core": "^7.26.0",
+    "@babel/plugin-proposal-decorators": "7.28.0"
+  }
 }

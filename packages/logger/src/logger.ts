@@ -65,8 +65,16 @@ export function createLogger({
 const SLOW_REQUEST_MS = Number(process.env.SLOW_REQUEST_MS ?? 1000)
 
 const SENSITIVE_QUERY_KEYS = new Set([
-  'token', 'access_token', 'refresh_token', 'code',
-  'password', 'key', 'api_key', 'secret', 'signature', 'x-api-key',
+  'token',
+  'access_token',
+  'refresh_token',
+  'code',
+  'password',
+  'key',
+  'api_key',
+  'secret',
+  'signature',
+  'x-api-key',
 ])
 
 export function getModuleFromUrl(url: string | undefined): string {
@@ -193,7 +201,10 @@ export async function timed<T>(
   try {
     const result = await fn()
     const ms = durationMs()
-    log[ms > SLOW_REQUEST_MS ? 'warn' : 'debug']({ operation, durationMs: ms, ...meta }, `${operation} done`)
+    log[ms > SLOW_REQUEST_MS ? 'warn' : 'debug'](
+      { operation, durationMs: ms, ...meta },
+      `${operation} done`
+    )
     return result
   } catch (err) {
     log.error({ err, operation, durationMs: durationMs(), ...meta }, `${operation} failed`)

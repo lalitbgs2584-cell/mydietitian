@@ -5,6 +5,7 @@ Backend API server for MyDietitian, built with Express 5 on Bun and TypeScript s
 ## Architecture & Layering Rules
 
 The codebase strictly enforces unidirectional layered architecture:
+
 ```
 Routes -> Controller -> Service -> Repository
 ```
@@ -17,18 +18,19 @@ Routes -> Controller -> Service -> Repository
 ## Auth Endpoints
 
 > **Note on Mobile Client vs. Web/API**:
+>
 > - The Expo mobile client uses Better Auth's native `/api/auth/*` endpoints directly via `@better-auth/expo`.
 > - The `/api/v1/auth/*` endpoints below are designed for web/admin and external API consumers.
 
-| Method | Endpoint | Access | Description |
-|---|---|---|---|
-| `POST` | `/api/v1/auth/register` | Public | Create account via `auth.api.signUpEmail` (201 Created) |
-| `POST` | `/api/v1/auth/login` | Public | Sign in via `auth.api.signInEmail`; rejects banned users with `USER_BANNED` |
-| `POST` | `/api/v1/auth/logout` | Authenticated | Sign out via `auth.api.signOut`; clears session cookies |
-| `POST` | `/api/v1/auth/forgot-password` | Public | Request password reset link; uniform 200 response (prevents user enumeration) |
-| `POST` | `/api/v1/auth/reset-password` | Public | Reset password with token; returns 400 `INVALID_OR_EXPIRED_TOKEN` if invalid/expired |
-| `GET` | `/api/v1/auth/me` | Authenticated | Retrieve current user profile via repository |
-| `GET` | `/api/v1/auth/admin-check` | Admin only | RBAC demo route protected by `requireRole(ROLES.ADMIN)` |
+| Method | Endpoint                       | Access        | Description                                                                          |
+| ------ | ------------------------------ | ------------- | ------------------------------------------------------------------------------------ |
+| `POST` | `/api/v1/auth/register`        | Public        | Create account via `auth.api.signUpEmail` (201 Created)                              |
+| `POST` | `/api/v1/auth/login`           | Public        | Sign in via `auth.api.signInEmail`; rejects banned users with `USER_BANNED`          |
+| `POST` | `/api/v1/auth/logout`          | Authenticated | Sign out via `auth.api.signOut`; clears session cookies                              |
+| `POST` | `/api/v1/auth/forgot-password` | Public        | Request password reset link; uniform 200 response (prevents user enumeration)        |
+| `POST` | `/api/v1/auth/reset-password`  | Public        | Reset password with token; returns 400 `INVALID_OR_EXPIRED_TOKEN` if invalid/expired |
+| `GET`  | `/api/v1/auth/me`              | Authenticated | Retrieve current user profile via repository                                         |
+| `GET`  | `/api/v1/auth/admin-check`     | Admin only    | RBAC demo route protected by `requireRole(ROLES.ADMIN)`                              |
 
 ## Error & Response Conventions
 

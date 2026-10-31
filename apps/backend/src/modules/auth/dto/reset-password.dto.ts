@@ -10,4 +10,3 @@ export class ResetPasswordDto extends BaseDto {
 }
 
 export default ResetPasswordDto
-

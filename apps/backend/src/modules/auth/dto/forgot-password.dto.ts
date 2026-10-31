@@ -8,4 +8,3 @@ export class ForgotPasswordDto extends BaseDto {
 }
 
 export default ForgotPasswordDto
-

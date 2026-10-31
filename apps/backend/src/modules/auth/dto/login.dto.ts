@@ -9,4 +9,3 @@ export class LoginDto extends BaseDto {
 }
 
 export default LoginDto
-

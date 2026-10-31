@@ -10,3 +10,4 @@ coverage/
 .windsurf/
 .github/
 .vscode/
+./packages/db/src/generated/

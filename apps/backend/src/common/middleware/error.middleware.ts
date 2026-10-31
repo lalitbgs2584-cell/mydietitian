@@ -19,7 +19,12 @@ export const toApiError = (err: unknown): ApiError => {
   }
 
   if (err instanceof APIError || (isObj(err) && err.name === 'APIError')) {
-    const apiErr = err as { statusCode?: number; status?: string | number; message?: string; body?: unknown }
+    const apiErr = err as {
+      statusCode?: number
+      status?: string | number
+      message?: string
+      body?: unknown
+    }
     const statusCode = typeof apiErr.statusCode === 'number' ? apiErr.statusCode : 400
     const code =
       isObj(apiErr.body) && typeof apiErr.body.code === 'string'
@@ -68,7 +73,8 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
   // Response already started: let Express close the connection
   if (res.headersSent) return next(err)
 
-  const requestId = (req.id as string | undefined) ?? (req.headers['x-request-id'] as string | undefined)
+  const requestId =
+    (req.id as string | undefined) ?? (req.headers['x-request-id'] as string | undefined)
 
   res.status(error.statusCode).json({
     status: error.status,
@@ -76,6 +82,8 @@ export const errorHandler: ErrorRequestHandler = (err, req, res, next) => {
     message: error.message,
     requestId,
     ...(error.errors && { errors: error.errors }),
-    ...(process.env.NODE_ENV === 'development' && { stack: err instanceof Error ? err.stack : error.stack }),
+    ...(process.env.NODE_ENV === 'development' && {
+      stack: err instanceof Error ? err.stack : error.stack,
+    }),
   })
 }

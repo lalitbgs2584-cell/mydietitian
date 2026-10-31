@@ -23,15 +23,13 @@ export class AuthService {
       returnHeaders: true,
     })
 
-    const data = (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
+    const data =
+      (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
     const responseHeaders = (res as Record<string, unknown>)?.headers as Headers | undefined
     return { data, headers: responseHeaders }
   }
 
-  async login(
-    input: { email: string; password: string },
-    headers: Headers
-  ): Promise<AuthResult> {
+  async login(input: { email: string; password: string }, headers: Headers): Promise<AuthResult> {
     const res = await auth.api.signInEmail({
       body: {
         email: input.email.toLowerCase().trim(),
@@ -41,7 +39,8 @@ export class AuthService {
       returnHeaders: true,
     })
 
-    const data = (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
+    const data =
+      (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
     const responseHeaders = (res as Record<string, unknown>)?.headers as Headers | undefined
 
     const user = (data as { user?: { banned?: boolean | null } })?.user
@@ -58,15 +57,13 @@ export class AuthService {
       returnHeaders: true,
     })
 
-    const data = (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
+    const data =
+      (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
     const responseHeaders = (res as Record<string, unknown>)?.headers as Headers | undefined
     return { data, headers: responseHeaders }
   }
 
-  async forgotPassword(
-    email: string,
-    headers: Headers
-  ): Promise<{ message: string }> {
+  async forgotPassword(email: string, headers: Headers): Promise<{ message: string }> {
     try {
       await auth.api.requestPasswordReset({
         body: {
@@ -98,7 +95,8 @@ export class AuthService {
         returnHeaders: true,
       })
 
-      const data = (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
+      const data =
+        (res as Record<string, unknown>)?.response ?? (res as Record<string, unknown>)?.data ?? res
       const responseHeaders = (res as Record<string, unknown>)?.headers as Headers | undefined
       return { data, headers: responseHeaders }
     } catch (err) {
@@ -106,7 +104,10 @@ export class AuthService {
         err instanceof APIError ||
         (typeof err === 'object' && err !== null && (err as { name?: string }).name === 'APIError')
       ) {
-        throw ApiError.badRequest('Invalid or expired password reset token', 'INVALID_OR_EXPIRED_TOKEN')
+        throw ApiError.badRequest(
+          'Invalid or expired password reset token',
+          'INVALID_OR_EXPIRED_TOKEN'
+        )
       }
       throw err
     }
@@ -122,4 +123,3 @@ export class AuthService {
 }
 
 export const authService = new AuthService()
-

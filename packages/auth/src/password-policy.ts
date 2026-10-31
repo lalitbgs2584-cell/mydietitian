@@ -17,10 +17,7 @@ export const passwordSchema = z
   .regex(PASSWORD_REGEX.UPPERCASE, 'Password must contain at least one uppercase letter')
   .regex(PASSWORD_REGEX.LOWERCASE, 'Password must contain at least one lowercase letter')
   .regex(PASSWORD_REGEX.NUMBER, 'Password must contain at least one number')
-  .regex(
-    PASSWORD_REGEX.SPECIAL,
-    'Password must contain at least one special character'
-  )
+  .regex(PASSWORD_REGEX.SPECIAL, 'Password must contain at least one special character')
 
 export function validatePassword(password: string): { isValid: boolean; error?: string } {
   const result = passwordSchema.safeParse(password)
@@ -29,4 +26,3 @@ export function validatePassword(password: string): { isValid: boolean; error?: 
   }
   return { isValid: false, error: result.error.issues[0]?.message ?? 'Invalid password' }
 }
-

@@ -75,4 +75,3 @@ export const authorize = (...roles: Role[]) => {
 
 export const requireAuth = authenticate
 export const requireRole = (...roles: Role[]) => [authenticate, authorize(...roles)]
-

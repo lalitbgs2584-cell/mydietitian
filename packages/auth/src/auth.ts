@@ -39,7 +39,10 @@ export const auth = betterAuth({
     sendVerificationEmail: async (data, _request) => {
       // TODO: send verification email to user here
       if (process.env.NODE_ENV === 'development') {
-        authLogger.debug({ email: data.user.email, url: data.url }, 'Email verification URL generated')
+        authLogger.debug(
+          { email: data.user.email, url: data.url },
+          'Email verification URL generated'
+        )
       }
     },
   },
