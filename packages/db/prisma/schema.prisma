@@ -1,0 +1,1448 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Session {
+  id             String   @id
+  expiresAt      DateTime
+  token          String
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  ipAddress      String?
+  userAgent      String?
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  impersonatedBy String?
+
+  @@unique([token])
+  @@index([userId])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@index([userId])
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@index([identifier])
+  @@map("verification")
+}
+
+// ============================================================
+// ENUMS 
+// ============================================================
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHT
+  MODERATE
+  ACTIVE
+  VERY_ACTIVE
+}
+
+// NEW: pregnancy/lactation change RDAs. Default GENERAL. Asked sensitively, optional.
+enum LifeStage {
+  GENERAL
+  PREGNANT
+  LACTATING
+}
+
+enum DietType {
+  VEGAN
+  VEGETARIAN
+  EGGETARIAN
+  PESCATARIAN
+  NON_VEGETARIAN
+  FLEXITARIAN // profile only; never used to tag a Food
+}
+
+enum DietaryApproach {
+  KETO
+  PALEO
+  LOW_CARB
+  HIGH_PROTEIN
+  MEDITERRANEAN
+}
+
+enum DietaryPracticeType {
+  JAIN
+  SATTVIC
+  NO_ONION_GARLIC
+  HALAL
+  KOSHER
+}
+
+enum Allergen {
+  PEANUT
+  TREE_NUT
+  MILK
+  EGG
+  SOY
+  GLUTEN
+  FISH
+  SHELLFISH
+  SESAME
+  MUSTARD
+}
+
+enum RestrictionType {
+  ALLERGY
+  INTOLERANCE
+}
+
+// CHANGED: added MORNING_SNACK and LATE_NIGHT_SNACK (chai/biscuit, late snack are common).
+enum MealType {
+  BREAKFAST
+  MORNING_SNACK
+  LUNCH
+  EVENING_SNACK
+  DINNER
+  LATE_NIGHT_SNACK
+}
+
+enum MealItemSource {
+  AI
+  MANUAL
+  BARCODE
+}
+
+enum FoodPreferenceType {
+  LIKE
+  DISLIKE
+}
+
+enum FoodCatalogStatus {
+  VERIFIED
+  UNVERIFIED
+  ARCHIVED
+}
+
+enum FoodDataSource {
+  IFCT // Indian Food Composition Tables (check licence before bulk import)
+  USDA
+  OPEN_FOOD_FACTS
+  AI_ESTIMATE
+  ADMIN
+}
+
+// NEW: canonical unit for pantry/grocery maths. The free-text `unit` stays for display.
+enum BaseUnit {
+  GRAM
+  MILLILITRE
+  PIECE
+}
+
+// NEW: what a FoodPrice row is priced per (milk is per litre, eggs per piece).
+enum PriceBasis {
+  PER_KG
+  PER_LITRE
+  PER_PIECE
+}
+
+// NEW: replaces free-text FoodPrice.source so values cannot drift ("admin" / "Admin").
+enum FoodPriceSource {
+  ADMIN
+  USER_REPORTED
+  PROVIDER
+}
+
+enum GoalType {
+  WEIGHT_LOSS
+  WEIGHT_GAIN
+  WEIGHT_MAINTENANCE
+  MUSCLE_GAIN
+  BALANCED_NUTRITION
+}
+
+enum GoalStatus {
+  ACTIVE
+  COMPLETED
+  PAUSED
+  ABANDONED
+}
+
+enum BudgetPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum ScanType {
+  MEAL
+  INGREDIENT_LABEL
+}
+
+enum ScanStatus {
+  PROCESSING
+  COMPLETE
+  FAILED
+  REFUSED
+}
+
+enum HealthVerdict {
+  GOOD_FIT
+  MIXED
+  LIMITED_FIT
+  INSUFFICIENT_DATA
+}
+
+enum MealPlanStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum GroceryListStatus {
+  ACTIVE
+  COMPLETED
+}
+
+enum ExpenseCategory {
+  GROCERY
+  EATING_OUT
+  OTHER
+}
+
+// CHANGED: added FASTING (PRD asks for configurable reminders incl. fasting).
+enum ReminderKind {
+  WATER
+  MEAL
+  FASTING
+}
+
+// NEW: a fast needs a start reminder and an end reminder, so FASTING reminders
+// must say which one they are.
+enum FastingReminderPhase {
+  START
+  END
+}
+
+enum InsightPeriod {
+  WEEK
+  MONTH
+}
+
+enum ChatRole {
+  USER
+  ASSISTANT
+}
+
+enum OnboardingStatus {
+  IN_PROGRESS
+  COMPLETED
+  ABANDONED
+}
+
+enum NotificationChannel {
+  IN_APP
+  PUSH
+  EMAIL
+}
+
+// CHANGED: added FASTING_REMINDER.
+enum NotificationCategory {
+  MEAL_REMINDER
+  WATER_REMINDER
+  FASTING_REMINDER
+  GOAL_PROGRESS
+  WEEKLY_SUMMARY
+  BUDGET_ALERT
+  REFERRAL
+  SECURITY // cannot be disabled (enforced in constraints.sql)
+  SYSTEM
+}
+
+enum DeliveryStatus {
+  PENDING
+  SENT
+  FAILED
+  SKIPPED
+}
+
+enum DevicePlatform {
+  IOS
+  ANDROID
+}
+
+enum ReferralInvitationStatus {
+  PENDING
+  ACCEPTED
+  EXPIRED
+  REVOKED
+}
+
+// FUTURE / OUT OF SCOPE: subscriptions are not in the current PRD. Do not build billing logic yet.
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  GRACE_PERIOD
+  BILLING_RETRY
+  CANCELED
+  EXPIRED
+}
+
+// FUTURE / OUT OF SCOPE (see Subscription).
+enum SubscriptionStore {
+  APP_STORE
+  PLAY_STORE
+  ADMIN
+}
+
+// ============================================================
+// PHASE 1: USER + PRIMARY NUTRITION PROFILE
+// ============================================================
+
+// WHY: Better Auth owns this table. Kept here only so our relations compile.
+// Keep the auth fields exactly as Better Auth generated them.
+//
+// CHANGED: the FK now lives on NutritionProfile.userId (true 1:1). The old
+// User.nutritionProfileId column is removed. This is what actually enforces
+// "one primary nutrition profile per user".
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique // lowercase, trimmed
+  username      String?   @unique // delete this field if you don't use the username plugin
+  name          String?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  emailVerified Boolean   @default(false)
+  image         String?
+  role          String?   @default("user")
+  banned        Boolean?  @default(false)
+  banReason     String?
+  banExpires    DateTime?
+  deactivatedAt DateTime?
+  deletedAt     DateTime? // see notes: prefer hard delete so email can be reused
+
+  nutritionProfile            NutritionProfile?
+  onboardingSessions          OnboardingSession[]
+  notifications               Notification[]
+  pushDevices                 PushDevice[]
+  notificationPreferences     NotificationPreference[]
+  subscriptions               Subscription[]
+  sentReferralInvitations     ReferralInvitation[]     @relation("ReferralInvitationSender")
+  acceptedReferralInvitations ReferralInvitation[]     @relation("ReferralInvitationAccepter")
+  sessions                    Session[]
+  accounts                    Account[]
+
+  @@map("user")
+}
+
+model NutritionProfile {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Body (needed for BMR/TDEE). Current weight = latest WeightLog row.
+  gender        Gender?
+  dateOfBirth   DateTime?      @db.Date
+  heightCm      Decimal?       @db.Decimal(5, 2)
+  activityLevel ActivityLevel?
+  lifeStage     LifeStage      @default(GENERAL)
+  // App rule (zod): users under 18 get no weight-loss goals or calorie-deficit plans,
+  // and adult RDAs are not used for them.
+
+  // Diet (one diet type, many approaches/practices/cuisines)
+  dietType    DietType?
+  approaches  DietaryApproach[]
+  practices   DietaryPracticeType[]
+  cuisines    String[] // lowercase; values come from a fixed list in the shared zod package
+  mealsPerDay Int?
+
+  // Location: coarse on purpose (no GPS). Drives FoodPrice lookup + currency.
+  homeLocation UserLocation?
+
+  // Budget + hydration target
+  foodBudget    Decimal?     @db.Decimal(10, 2)
+  budgetPeriod  BudgetPeriod @default(MONTHLY)
+  waterTargetMl Int          @default(2500)
+
+  quietHoursStart String? // "22:00", applies to all notifications
+  quietHoursEnd   String? // "07:00"
+
+  onboardedAt DateTime? // set when voice onboarding completes
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  restrictions      DietaryRestriction[]
+  foodPreferences   FoodPreference[]
+  goals             NutritionGoal[]
+  weightLogs        WeightLog[]
+  mealLogs          MealLog[]
+  scans             Scan[]
+  scanSessions      ScanSession[]
+  barcodeScans      BarcodeScan[]
+  dailySummaries    DailyNutritionSummary[]
+  insights          Insight[]
+  waterLogs         WaterLog[]
+  fastingLogs       FastingLog[]
+  reminders         Reminder[]
+  pantryItems       PantryItem[]
+  mealPlans         MealPlan[]
+  groceryLists      GroceryList[]
+  expenses          ExpenseLog[]
+  chatConversations ChatConversation[]
+
+  @@map("nutritionProfile")
+}
+
+model UserLocation {
+  id                 String @id @default(cuid())
+  nutritionProfileId String @unique
+
+  nutritionProfile NutritionProfile @relation(fields: [nutritionProfileId], references: [id], onDelete: Cascade)
+
+  countryCode String  @default("IN")
+  regionCode  String?
+  city        String?
+  currency    String  @default("INR")
+  timeZone    String  @default("Asia/Kolkata")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("userLocation")
+}
+
+// WHY: allergies must be matchable against scanned ingredients and Food.allergens,
+// so they are an enum, not free text. The AI is constrained to this enum.
+// Dislikes of a specific food live in FoodPreference; religious/ethical rules
+// live in NutritionProfile.practices.
+model DietaryRestriction {
+  id        String          @id @default(cuid())
+  profileId String
+  allergen  Allergen
+  type      RestrictionType
+  notes     String?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, allergen])
+  @@map("dietaryRestriction")
+}
+
+// WHY: the voice agent flow. The session tracks progress so the user can resume;
+// answers keep only CONFIRMED structured values plus audit metadata. No audio,
+// no raw transcripts, as the PRD requires.
+model OnboardingSession {
+  id          String           @id @default(cuid())
+  userId      String
+  status      OnboardingStatus @default(IN_PROGRESS)
+  startedAt   DateTime         @default(now())
+  completedAt DateTime?
+
+  answers OnboardingAnswer[]
+  user    User               @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@map("onboardingSession")
+}
+
+model OnboardingAnswer {
+  id             String   @id @default(cuid())
+  sessionId      String
+  questionKey    String // e.g. "allergies", "diet_type"
+  confirmedValue Json // validated by zod before save
+  attempts       Int      @default(1) // times the user corrected it before confirming
+  confirmedAt    DateTime @default(now())
+
+  session OnboardingSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  @@unique([sessionId, questionKey])
+  @@map("onboardingAnswer")
+}
+
+// ============================================================
+// PHASE 3: GOALS + BODY TRACKING
+// ============================================================
+
+// WHY: one row = "what I'm trying to do" + the daily targets that come with it.
+// Old goals stay as history, so last month's charts compare against last month's
+// targets. Only one ACTIVE goal per profile (constraints.sql).
+model NutritionGoal {
+  id        String     @id @default(cuid())
+  profileId String
+  type      GoalType
+  status    GoalStatus @default(ACTIVE)
+
+  startWeightKg  Decimal? @db.Decimal(5, 2)
+  targetWeightKg Decimal? @db.Decimal(5, 2)
+
+  dailyKcal Int
+  proteinG  Int
+  carbsG    Int
+  fatG      Int
+  fiberG    Int
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+  notes     String?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, status])
+  @@map("nutritionGoal")
+}
+
+// WHY: weight-loss / muscle-gain progress needs weight over time, not one number.
+model WeightLog {
+  id        String   @id @default(cuid())
+  profileId String
+  weightKg  Decimal  @db.Decimal(5, 2)
+  localDate DateTime @db.Date
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([profileId, localDate])
+  @@map("weightLog")
+}
+
+// ============================================================
+// PHASE 2: FOOD CATALOG
+// ============================================================
+
+// WHY: the reference list of foods with nutrition per 100g. Core macros are
+// columns because every meal log reads them. Micronutrients are in FoodNutrient.
+// dietType / allergens / practiceConflicts let meal plans and meal logs be
+// filtered or warned without calling the AI.
+//
+// CHANGED: an empty allergens[] cannot tell "no allergens" from "never checked".
+// allergensVerified / practiceConflictsVerified fix that. Rule for planning and
+// warnings: if the flag is false, treat the allergen info as UNKNOWN, not safe.
+model Food {
+  id          String            @id @default(cuid())
+  name        String
+  description String?
+  category    String? // "dal", "vegetable", "snack"...
+  cuisine     String? // "north-indian", "odia"...
+  status      FoodCatalogStatus @default(UNVERIFIED)
+  source      FoodDataSource    @default(ADMIN)
+
+  // Nullable means unknown; meal planning must never treat unknown as safe.
+  containsMeatOrPoultry     Boolean?
+  containsFishOrSeafood     Boolean?
+  containsEgg               Boolean?
+  containsDairy             Boolean?
+  // containsAnimalDerived = BROADER than the four flags above. It also covers
+  // animal ingredients they miss (honey, gelatin, lac/shellac, bone char...).
+  //   TRUE    = any of the four flags is TRUE, or another animal-derived ingredient is present
+  //   FALSE   = all four flags are FALSE and no other animal-derived ingredient exists (verified)
+  //   NULL    = unknown
+  // Used only to filter VEGAN diets (vegan-safe requires an explicit FALSE). Planning
+  // logic must NOT treat it as authoritative: for meat/fish/egg/dairy rules use the
+  // specific flags, and treat a NULL specific flag as unknown. constraints.sql blocks
+  // FALSE when any specific flag is TRUE.
+  containsAnimalDerived     Boolean?
+  containsOnionGarlic       Boolean?
+  allergens                 Allergen[]
+  allergensVerified         Boolean               @default(false) // false = allergens[] is unknown, not "none"
+  practiceConflicts         DietaryPracticeType[] // explicit known conflicts; not a substitute for ingredient verification
+  practiceConflictsVerified Boolean               @default(false)
+
+  kcalPer100g    Decimal  @db.Decimal(7, 2)
+  proteinPer100g Decimal  @db.Decimal(6, 2)
+  carbsPer100g   Decimal  @db.Decimal(6, 2)
+  fatPer100g     Decimal  @db.Decimal(6, 2)
+  fiberPer100g   Decimal? @db.Decimal(6, 2)
+
+  // NEW: grams per ml, only needed for liquids so ml <-> g conversion works
+  // (milk ~1.03, oil ~0.92). Null = unknown, do not guess.
+  densityGPerMl Decimal? @db.Decimal(6, 3)
+
+  aliases      FoodAlias[]
+  servings     FoodServing[]
+  nutrients    FoodNutrient[]
+  prices       FoodPrice[]
+  preferences  FoodPreference[]
+  mealItems    MealItem[]
+  planItems    MealPlanItem[]
+  pantryItems  PantryItem[]
+  groceryItems GroceryItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([name])
+  @@index([status])
+  @@map("food")
+}
+
+// WHY: "moongphali", "groundnut", "peanut" must all find one Food.
+// Trigram indexes for fuzzy matching are in constraints.sql.
+model FoodAlias {
+  id       String @id @default(cuid())
+  foodId   String
+  alias    String // lowercase (enforced in constraints.sql)
+  language String @default("en")
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  // CHANGED: the same alias may point to several foods (search returns candidates,
+  // the app/AI disambiguates). Uniqueness is per food, not global.
+  @@unique([foodId, alias, language])
+  @@index([alias, language])
+  @@index([foodId])
+  @@map("foodAlias")
+}
+
+// WHY: Indian portions are "1 katori", "1 roti", "1 glass", not grams.
+// The AI picks a serving; we convert to grams for the math.
+// At most one default per food (constraints.sql).
+model FoodServing {
+  id        String  @id @default(cuid())
+  foodId    String
+  label     String // "katori", "roti", "piece"
+  grams     Decimal @db.Decimal(7, 2)
+  isDefault Boolean @default(false)
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@unique([foodId, label])
+  @@map("foodServing")
+}
+
+// WHY: micronutrients (iron, B12, calcium...) as rows instead of 30+ columns.
+// The query this exists for: "which foods are high in iron?" for gap fixes.
+model Nutrient {
+  id   String @id @default(cuid())
+  code String @unique // "iron", "vitamin_b12", "calcium"
+  name String
+  unit String // "mg", "mcg", "g"
+
+  foods      FoodNutrient[]
+  references NutrientReference[]
+
+  @@map("nutrient")
+}
+
+model FoodNutrient {
+  foodId        String
+  nutrientId    String
+  amountPer100g Decimal @db.Decimal(10, 3)
+
+  food     Food     @relation(fields: [foodId], references: [id], onDelete: Cascade)
+  nutrient Nutrient @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+
+  @@id([foodId, nutrientId])
+  @@index([nutrientId, amountPer100g])
+  @@map("foodNutrient")
+}
+
+// WHY: gap analysis needs "how much is enough" per age, gender and life stage.
+// Seed from ICMR-NIN RDA tables (verify values and licence before shipping).
+// CHANGED: added lifeStage. Duplicate/overlapping age ranges are blocked by exclusion
+// constraints in constraints.sql. A NULL-gender row overlapping a gendered row is NOT
+// caught by the database: validate that during seeding and admin updates.
+model NutrientReference {
+  id          String    @id @default(cuid())
+  nutrientId  String
+  gender      Gender? // null = applies to everyone
+  lifeStage   LifeStage @default(GENERAL)
+  ageMinYears Int
+  ageMaxYears Int
+  rda         Decimal   @db.Decimal(10, 3)
+  upperLimit  Decimal?  @db.Decimal(10, 3)
+  source      String?
+
+  nutrient Nutrient @relation(fields: [nutrientId], references: [id], onDelete: Cascade)
+
+  @@index([nutrientId, gender, lifeStage])
+  @@map("nutrientReference")
+}
+
+// WHY: regional prices (PRD D). Append-only: a new observation is a new row,
+// the app reads the latest per (food, region). Every price is an estimate.
+// CHANGED: pricePerKg -> price + basis, so milk (litre) and eggs (piece) work.
+model FoodPrice {
+  id         String          @id @default(cuid())
+  foodId     String
+  regionCode String // matches NutritionProfile.regionCode
+  price      Decimal         @db.Decimal(10, 2)
+  basis      PriceBasis      @default(PER_KG)
+  currency   String          @default("INR")
+  source     FoodPriceSource @default(ADMIN)
+  observedAt DateTime
+
+  food Food @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  @@index([foodId, regionCode, observedAt])
+  @@map("foodPrice")
+}
+
+// WHY: likes/dislikes steer meal plans and next-meal suggestions.
+model FoodPreference {
+  id        String             @id @default(cuid())
+  profileId String
+  foodId    String
+  type      FoodPreferenceType
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  food    Food             @relation(fields: [foodId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([profileId, foodId])
+  @@index([foodId])
+  @@map("foodPreference")
+}
+
+// ============================================================
+// PHASE 2: SCANNING + MEAL LOGGING
+// ============================================================
+
+// WHY: groups several photos of ONE packaged product (ingredient list, nutrition
+// panel, allergy warning) into one product check. Only INGREDIENT_LABEL scans use it;
+// MEAL scans never have a session (constraints.sql). Each Scan still has exactly one
+// photoKey, so there is no separate image table.
+model ScanSession {
+  id        String   @id @default(cuid())
+  profileId String
+  type      ScanType
+  localDate DateTime @db.Date
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  scans   Scan[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, localDate])
+  @@map("scanSession")
+}
+
+// WHY: one table for every "photo -> AI -> structured JSON" job (meal and
+// ingredient label). One place for cost/latency tracking, retries, and photo
+// quotas ("scans today" = one COUNT query).
+//
+// MEAL scan: the photo stays at photoKey while PROCESSING. When the user
+// confirms, one transaction creates MealLog + MealItems + MealPhoto and sets
+// mealLogId + status COMPLETE. MealLog never exists for an unfinished scan.
+// If the object is moved to a permanent key on confirm, update photoKey in the
+// same transaction so it never points at a deleted object.
+// INGREDIENT_LABEL scan: verdict etc. are filled; mealLogId stays null. It may belong
+// to a ScanSession (several photos of one product). This is the back-of-pack model.
+//
+// State machine (enforced in the service layer, valid combinations in constraints.sql):
+//   PROCESSING -> COMPLETE | FAILED | REFUSED     (COMPLETE never returns to PROCESSING)
+//
+// CHANGED: removed `summary` and `ocrText` columns. They duplicated `result`
+// (the PRD says avoid duplicated representations) and raw OCR text is a privacy
+// and retention burden. Put the summary and any needed OCR text inside `result`
+// (validated by the shared zod schema). Kept productName, verdict, qualityScore
+// because the history screen filters/sorts on them.
+model Scan {
+  id        String     @id @default(cuid())
+  profileId String
+  type      ScanType
+  status    ScanStatus @default(PROCESSING)
+  errorCode String? // model_timeout, bad_json, not_a_label, rate_limited
+  localDate DateTime   @db.Date
+
+  // Photo
+  photoKey        String    @unique // pending/{profileId}/{id}.jpg
+  mimeType        String?
+  imageBytes      Int?
+  photoUploadedAt DateTime?
+
+  // Label-scan output (queryable for history screen)
+  productName  String?
+  verdict      HealthVerdict?
+  qualityScore Int? // 0-100, explained in result
+
+  // Queryable snapshots extracted from the validated `result`. `result` stays the full
+  // versioned AI response; uncertainty, OCR-derived facts, AI interpretation and
+  // missing-data warnings live there. An EMPTY detectedAllergens means "none detected",
+  // NOT "verified safe", unless result explicitly says allergen info was verified.
+  detectedAllergens Allergen[]
+  flaggedAdditives  String[] // normalized lowercase additive names / E-numbers
+
+  // Full validated AI output (summary, reasons, flagged additives, allergen
+  // warnings, uncertainty, label facts vs AI interpretation)
+  result        Json?
+  resultVersion Int   @default(1)
+
+  mealLogId String? @unique
+
+  // INGREDIENT_LABEL only: groups photos of one product. Always null for MEAL scans.
+  scanSessionId String?
+
+  // Ops
+  aiModel      String?
+  inputTokens  Int?
+  outputTokens Int?
+  costMicroUsd Int?
+  latencyMs    Int?
+
+  profile     NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  // CHANGED: SetNull -> Cascade. A COMPLETE meal scan must keep its mealLogId (CHECK in
+  // constraints.sql), so nulling it on meal-log delete would be rejected. Deleting a
+  // meal log now deletes its scan row too.
+  mealLog     MealLog?         @relation(fields: [mealLogId], references: [id], onDelete: Cascade)
+  scanSession ScanSession?     @relation(fields: [scanSessionId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, type, createdAt])
+  @@index([profileId, localDate])
+  @@index([status, createdAt])
+  @@index([scanSessionId])
+  @@map("scan")
+}
+
+// WHY: a meal the user has reviewed and saved. localDate = the user's own
+// calendar day (computed with profile.timeZone), so "today" is correct for
+// someone logging at 11:50pm.
+model MealLog {
+  id        String   @id @default(cuid())
+  profileId String
+  mealType  MealType
+  loggedAt  DateTime @default(now())
+  localDate DateTime @db.Date
+  note      String?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  photos  MealPhoto[]
+  items   MealItem[]
+  scan    Scan?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, localDate])
+  @@map("mealLog")
+}
+
+// WHY: a meal can have several photos. Only exists for completed meals, so it
+// has no status field.
+model MealPhoto {
+  id         String @id @default(cuid())
+  mealLogId  String
+  storageKey String @unique
+  mimeType   String
+
+  mealLog MealLog @relation(fields: [mealLogId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([mealLogId])
+  @@map("mealPhoto")
+}
+
+// WHY: what the user actually ate. Nutrition is SNAPSHOT at log time, so
+// editing the food catalog later never changes history. foodId is null when
+// the AI item was not matched to the catalog; the snapshot still works, and
+// frequent unmatched names show what to add to the catalog.
+// CHANGED: barcodeProductId links items logged from a barcode scan
+// (source = BARCODE) back to the product.
+model MealItem {
+  id               String         @id @default(cuid())
+  mealLogId        String
+  foodId           String?
+  barcodeProductId String?
+  name             String
+  quantity         Decimal        @db.Decimal(8, 2)
+  unit             String // "katori", "g"
+  grams            Decimal        @db.Decimal(8, 2)
+  source           MealItemSource @default(AI)
+  confidence       Decimal?       @db.Decimal(3, 2) // 0-1, AI certainty, shown to the user
+
+  kcal     Decimal  @db.Decimal(7, 2)
+  proteinG Decimal  @db.Decimal(6, 2)
+  carbsG   Decimal  @db.Decimal(6, 2)
+  fatG     Decimal  @db.Decimal(6, 2)
+  fiberG   Decimal? @db.Decimal(6, 2)
+  micros   Json? // { "iron": 2.1, "calcium": 80 } keyed by Nutrient.code
+
+  estimatedCost Decimal? @db.Decimal(10, 2) // from FoodPrice; always an estimate
+
+  mealLog        MealLog         @relation(fields: [mealLogId], references: [id], onDelete: Cascade)
+  food           Food?           @relation(fields: [foodId], references: [id], onDelete: SetNull)
+  barcodeProduct BarcodeProduct? @relation(fields: [barcodeProductId], references: [id], onDelete: SetNull)
+
+  @@index([mealLogId])
+  @@index([foodId])
+  @@index([barcodeProductId])
+  @@map("mealItem")
+}
+
+// WHY: barcode lookups. BarcodeProduct is a cache of external data so we don't
+// hit the API twice for the same product; notFound caches misses too.
+// CHANGED: Float -> Decimal (consistent with the rest), sodium unit made
+// explicit (sodiumMg per 100g), table renamed to camelCase.
+// `nutriments` is now ONLY the raw provider payload (fields not mapped to the
+// columns below); do not read core values from it.
+model BarcodeProduct {
+  id              String   @id @default(cuid())
+  barcode         String   @unique // normalized digits only (EAN-8 / UPC-A / EAN-13 / GTIN-14)
+  name            String?
+  brands          String[]
+  imageUrl        String?
+  ingredientsText String?  @db.Text
+  servingG        Decimal? @db.Decimal(8, 2)
+  kcal            Decimal? @db.Decimal(7, 2) // per 100g
+  protein         Decimal? @db.Decimal(6, 2)
+  carbs           Decimal? @db.Decimal(6, 2)
+  sugar           Decimal? @db.Decimal(6, 2)
+  fiber           Decimal? @db.Decimal(6, 2)
+  sodiumMg        Decimal? @db.Decimal(8, 2) // mg per 100g (convert from provider g)
+  fat             Decimal? @db.Decimal(6, 2)
+  nutriscore      String?
+  nutriments      Json? // raw provider payload only
+  notFound        Boolean  @default(false)
+  source          String   @default("open_food_facts")
+  fetchedAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  scans     BarcodeScan[]
+  mealItems MealItem[]
+
+  @@map("barcodeProduct")
+}
+
+// CHANGED: added verdict / qualityScore / result so barcode products get the
+// same explainable, personalised score as label scans (PRD 2C).
+model BarcodeScan {
+  id                  String   @id @default(cuid())
+  profileId           String
+  productId           String
+  localDate           DateTime @db.Date // user-local day (profile.timeZone)
+  // Snapshot of the product data shown at scan time; cache may change later.
+  productNameSnapshot String?
+  brandsSnapshot      String[] @default([])
+  nutrimentsSnapshot  Json?
+  sourceSnapshot      String?
+
+  // Personalised assessment (null if not computed or data was insufficient)
+  verdict       HealthVerdict?
+  qualityScore  Int? // 0-100, explained in result
+  result        Json? // validated by the same shared zod contract as label scans
+  resultVersion Int            @default(1)
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  product BarcodeProduct   @relation(fields: [productId], references: [id])
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, createdAt])
+  @@index([profileId, localDate])
+  @@map("barcodeScan")
+}
+
+// ============================================================
+// PHASE 3: INSIGHTS (charts + weekly/monthly summaries)
+// ============================================================
+
+// WHY: THE table behind every chart. One row per profile per day, rebuilt from
+// MealItem + WaterLog + ExpenseLog + the goal in force, inside the same
+// transaction that changes any of them. Week/month charts are then a
+// SELECT over 7 or 30 rows instead of scanning every meal item.
+// Target columns are snapshots so old days compare to the target they had.
+// mealCount tells insights whether the day is complete enough to judge.
+// CHANGED: snapshot ALL targets (carbs, fat, fibre) plus budget and currency.
+model DailyNutritionSummary {
+  id        String   @id @default(cuid())
+  profileId String
+  localDate DateTime @db.Date
+
+  kcal                    Decimal @default(0) @db.Decimal(8, 2)
+  proteinG                Decimal @default(0) @db.Decimal(7, 2)
+  carbsG                  Decimal @default(0) @db.Decimal(7, 2)
+  fatG                    Decimal @default(0) @db.Decimal(7, 2)
+  fiberG                  Decimal @default(0) @db.Decimal(7, 2)
+  micros                  Json? // summed per Nutrient.code
+  waterMl                 Int     @default(0)
+  purchaseSpend           Decimal @default(0) @db.Decimal(10, 2) // actual ExpenseLog purchases only
+  consumptionCostEstimate Decimal @default(0) @db.Decimal(10, 2) // estimated value of food consumed; never add to purchase spend
+  mealCount               Int     @default(0)
+  currency                String  @default("INR") // currency of the two cost columns and budgetTarget
+
+  // Target snapshots (what applied on this day)
+  kcalTarget     Int?
+  proteinTargetG Int?
+  carbsTargetG   Int?
+  fatTargetG     Int?
+  fiberTargetG   Int?
+  waterTargetMl  Int?
+  budgetTarget   Decimal?      @db.Decimal(10, 2)
+  budgetPeriod   BudgetPeriod?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt // last recomputation
+
+  @@unique([profileId, localDate])
+  @@map("dailyNutritionSummary")
+}
+
+// WHY: caches the weekly/monthly report. Numbers (stats) are computed by code
+// from DailyNutritionSummary; the LLM only writes the narrative from those stats.
+// Also what the WEEKLY_SUMMARY notification points to.
+model Insight {
+  id           String        @id @default(cuid())
+  profileId    String
+  period       InsightPeriod
+  periodStart  DateTime      @db.Date
+  periodEnd    DateTime      @db.Date
+  stats        Json // averages, trends, coverage (days with enough logs)
+  statsVersion Int           @default(1)
+  narrative    String?       @db.Text
+  aiModel      String?
+  generatedAt  DateTime      @default(now())
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  @@unique([profileId, period, periodStart])
+  @@map("insight")
+}
+
+// ============================================================
+// PHASE 4-5: PLANNING, PANTRY, GROCERY, BUDGET
+// ============================================================
+
+// WHY: a generated daily/weekly plan. No overlapping ACTIVE plans per profile
+// (exclusion constraint in constraints.sql).
+model MealPlan {
+  id            String         @id @default(cuid())
+  profileId     String
+  startDate     DateTime       @db.Date
+  endDate       DateTime       @db.Date
+  status        MealPlanStatus @default(DRAFT)
+  estimatedCost Decimal?       @db.Decimal(10, 2)
+
+  profile      NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  items        MealPlanItem[]
+  groceryLists GroceryList[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, startDate])
+  @@map("mealPlan")
+}
+
+// WHY: flat on purpose (date + meal type on the row, no "entry" middle table).
+// A substitution is an edit of one row, then totals are recalculated.
+model MealPlanItem {
+  id        String   @id @default(cuid())
+  planId    String
+  localDate DateTime @db.Date
+  mealType  MealType
+  foodId    String?
+  name      String
+  grams     Decimal  @db.Decimal(8, 2)
+
+  kcal          Decimal  @db.Decimal(7, 2)
+  proteinG      Decimal  @db.Decimal(6, 2)
+  carbsG        Decimal  @db.Decimal(6, 2)
+  fatG          Decimal  @db.Decimal(6, 2)
+  fiberG        Decimal? @db.Decimal(6, 2)
+  estimatedCost Decimal? @db.Decimal(10, 2)
+
+  plan MealPlan @relation(fields: [planId], references: [id], onDelete: Cascade)
+  food Food?    @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  @@index([planId, localDate])
+  @@index([foodId])
+  @@map("mealPlanItem")
+}
+
+// WHY: "what I have at home". Planning and grocery lists subtract these.
+// CHANGED: quantity/unit stay for display ("2 katori"); quantityBase/baseUnit
+// hold the canonical amount (g, ml or pieces) so "plan minus pantry" is real
+// maths. Both are set together or both null (constraints.sql).
+model PantryItem {
+  id           String    @id @default(cuid())
+  profileId    String
+  foodId       String?
+  name         String
+  quantity     Decimal?  @db.Decimal(10, 2)
+  unit         String?
+  quantityBase Decimal?  @db.Decimal(12, 2)
+  baseUnit     BaseUnit?
+  expiresOn    DateTime? @db.Date
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  food    Food?            @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId])
+  @@index([foodId])
+  @@map("pantryItem")
+}
+
+// WHY: shopping list generated from a plan minus the pantry.
+model GroceryList {
+  id             String            @id @default(cuid())
+  profileId      String
+  mealPlanId     String?
+  status         GroceryListStatus @default(ACTIVE)
+  estimatedTotal Decimal?          @db.Decimal(10, 2)
+
+  profile  NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  mealPlan MealPlan?        @relation(fields: [mealPlanId], references: [id], onDelete: SetNull)
+  items    GroceryItem[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, status])
+  @@map("groceryList")
+}
+
+model GroceryItem {
+  id            String    @id @default(cuid())
+  listId        String
+  foodId        String?
+  name          String
+  quantity      Decimal   @db.Decimal(10, 2)
+  unit          String
+  quantityBase  Decimal?  @db.Decimal(12, 2)
+  baseUnit      BaseUnit?
+  estimatedCost Decimal?  @db.Decimal(10, 2)
+  isChecked     Boolean   @default(false)
+
+  list GroceryList @relation(fields: [listId], references: [id], onDelete: Cascade)
+  food Food?       @relation(fields: [foodId], references: [id], onDelete: SetNull)
+
+  @@index([listId])
+  @@map("groceryItem")
+}
+
+// WHY: actual purchases are logged separately from estimated cost of food consumed. Never add both metrics together.
+// CHANGED: added currency so history stays correct if profile.currency changes.
+model ExpenseLog {
+  id        String          @id @default(cuid())
+  profileId String
+  amount    Decimal         @db.Decimal(10, 2)
+  currency  String          @default("INR")
+  category  ExpenseCategory
+  localDate DateTime        @db.Date
+  note      String?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, localDate])
+  @@map("expenseLog")
+}
+
+// ============================================================
+// PHASE 8: AI CHATBOT
+// ============================================================
+
+model ChatConversation {
+  id        String  @id @default(cuid())
+  profileId String
+  title     String?
+
+  profile  NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+  messages ChatMessage[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, updatedAt])
+  @@map("chatConversation")
+}
+
+model ChatMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  role           ChatRole
+  content        String   @db.Text
+  inputTokens    Int?
+  outputTokens   Int?
+  aiModel        String?
+  costMicroUsd   Int?
+
+  conversation ChatConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([conversationId, createdAt])
+  @@map("chatMessage")
+}
+
+// ============================================================
+// PHASE 9: HYDRATION, FASTING, REMINDERS
+// ============================================================
+
+model WaterLog {
+  id        String   @id @default(cuid())
+  profileId String
+  amountMl  Int
+  localDate DateTime @db.Date
+  loggedAt  DateTime @default(now())
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, localDate])
+  @@map("waterLog")
+}
+
+// WHY: fasting windows. A fast with endedAt = null is the one in progress
+// (at most one per profile, enforced in constraints.sql).
+model FastingLog {
+  id            String    @id @default(cuid())
+  profileId     String
+  startedAt     DateTime
+  endedAt       DateTime?
+  targetMinutes Int?
+  localDate     DateTime  @db.Date // local date it started
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@index([profileId, localDate])
+  @@map("fastingLog")
+}
+
+// WHY: one table for all user-configured reminders instead of one per feature.
+//  WATER:   startTime + endTime + intervalMin ("every 2 hr between 08:00-22:00")
+//  MEAL:    mealType + startTime (a fixed time)
+//  FASTING: fastingPhase (START or END) + startTime (a fixed time)
+// nextRunAt is UTC and is the only thing the scheduler queries.
+//
+// CHANGED: the old @@unique([profileId, kind, mealType]) did not work, because
+// Postgres treats NULL mealType as always distinct. Uniqueness is now done with
+// partial unique indexes in constraints.sql:
+//   - one WATER reminder per profile
+//   - one MEAL reminder per profile per mealType
+//   - FASTING: one START and one END reminder per profile
+// Required/forbidden fields per kind are CHECK constraints in constraints.sql and are
+// mirrored by the shared zod schema.
+model Reminder {
+  id        String       @id @default(cuid())
+  profileId String
+  kind      ReminderKind
+  mealType  MealType?
+
+  // FASTING only: START or END. Null for WATER and MEAL.
+  fastingPhase FastingReminderPhase?
+
+  enabled     Boolean @default(true)
+  startTime   String // local "08:00"
+  endTime     String? // local, WATER only
+  intervalMin Int? // WATER only
+  daysOfWeek  Int[] // only 1 (Monday) to 7 (Sunday); an ENABLED reminder needs at least one day
+
+  nextRunAt      DateTime?
+  lastNotifiedAt DateTime?
+  pausedUntil    DateTime?
+
+  profile NutritionProfile @relation(fields: [profileId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([profileId, kind])
+  @@index([enabled, nextRunAt])
+  @@map("reminder")
+}
+
+// ============================================================
+// PHASE 9: NOTIFICATIONS
+// ============================================================
+
+model Notification {
+  id          String               @id @default(cuid())
+  userId      String
+  category    NotificationCategory
+  templateKey String
+  variables   Json
+  data        Json? // deep-link target, ids
+  // Globally unique, so keys MUST be scoped to the user and the event, never a bare name:
+  //   water-reminder:{profileId}:{localDate}:{reminderSlot}
+  //   meal-reminder:{profileId}:{localDate}:{mealType}
+  //   weekly-summary:{profileId}:{periodStart}
+  dedupeKey   String?              @unique
+  readAt      DateTime?
+  createdAt   DateTime             @default(now())
+
+  deliveries NotificationDelivery[]
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, readAt, createdAt])
+  @@map("notification")
+}
+
+// CHANGED: pushDevice is now onDelete: Cascade (was SetNull). SetNull would turn
+// PUSH rows into device-less rows and break the duplicate-protection indexes.
+// Devices are normally soft-revoked via PushDevice.revokedAt anyway.
+// Duplicate protection per (notification, channel[, device]) is in constraints.sql.
+model NotificationDelivery {
+  id                String              @id @default(cuid())
+  notificationId    String
+  channel           NotificationChannel
+  pushDeviceId      String? // PUSH only, one row per device
+  status            DeliveryStatus      @default(PENDING)
+  providerMessageId String?
+  error             String?
+  attempts          Int                 @default(0)
+  renderedSnapshot  Json? // exactly what was sent
+  sentAt            DateTime?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+
+  notification Notification @relation(fields: [notificationId], references: [id], onDelete: Cascade)
+  pushDevice   PushDevice?  @relation(fields: [pushDeviceId], references: [id], onDelete: Cascade)
+
+  @@index([notificationId])
+  @@index([status, channel])
+  @@index([pushDeviceId])
+  @@map("notificationDelivery")
+}
+
+model PushDevice {
+  id            String         @id @default(cuid())
+  userId        String
+  expoPushToken String         @unique
+  platform      DevicePlatform
+  lastSeenAt    DateTime       @default(now())
+  revokedAt     DateTime?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+
+  deliveries NotificationDelivery[]
+  user       User                   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@map("pushDevice")
+}
+
+// SECURITY category can never be disabled (check in constraints.sql).
+model NotificationPreference {
+  userId   String
+  category NotificationCategory
+  channel  NotificationChannel
+  enabled  Boolean              @default(true)
+  user     User                 @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([userId, category, channel])
+  @@map("notificationPreference")
+}
+
+// ============================================================
+// PHASE 9: REFERRALS
+// ============================================================
+
+// Referral links bring new users in. They never grant access to anyone's data.
+model ReferralInvitation {
+  id          String  @id @default(cuid())
+  invitedById String
+  email       String?
+  tokenHash   String  @unique
+
+  acceptedById String?                  @unique // a user signs up via at most one referral
+  status       ReferralInvitationStatus @default(PENDING)
+
+  expiresAt  DateTime
+  acceptedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+  invitedBy  User     @relation("ReferralInvitationSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  acceptedBy User?    @relation("ReferralInvitationAccepter", fields: [acceptedById], references: [id], onDelete: SetNull)
+
+  @@index([email, status])
+  @@index([invitedById, status])
+  @@map("referralInvitation")
+}
+
+// FUTURE / OUT OF SCOPE: not part of the current PRD. Kept only so user deletion and
+// the schema stay consistent. Do NOT build billing logic until the product requires it.
+// CHANGED: onDelete: Cascade so a hard user delete is not blocked. Store receipts
+// remain in BillingEvent (no FK to User on purpose) if you must retain billing history.
+model Subscription {
+  id                  String             @id @default(cuid())
+  userId              String
+  store               SubscriptionStore
+  productId           String
+  storeSubscriptionId String
+  status              SubscriptionStatus
+  currentPeriodEnd    DateTime
+  willRenew           Boolean            @default(true)
+  trialEndsAt         DateTime?
+  canceledAt          DateTime?
+  isSandbox           Boolean            @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([store, storeSubscriptionId])
+  @@index([userId, currentPeriodEnd])
+  @@index([userId, status])
+  @@map("subscription")
+}
+
+// FUTURE / OUT OF SCOPE (see Subscription).
+// userId is deliberately a plain string (no FK) so the audit trail survives user deletion.
+model BillingEvent {
+  id          String    @id @default(cuid())
+  eventId     String    @unique
+  type        String
+  userId      String?
+  payload     Json
+  receivedAt  DateTime  @default(now())
+  processedAt DateTime?
+  isSandbox   Boolean   @default(false)
+  error       String?   @db.Text
+
+  @@index([userId, receivedAt])
+  @@index([processedAt, receivedAt])
+  @@map("billingEvent")
+}

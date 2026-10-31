@@ -1,0 +1,12 @@
+node_modules/
+dist/
+build/
+coverage/
+.next/
+.claude/
+.agents/
+.env
+.turbo/
+.windsurf/
+.github/
+.vscode/

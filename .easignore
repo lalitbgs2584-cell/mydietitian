@@ -1,0 +1,158 @@
+# ==========================================
+# MYDIETITIAN - EAS BUILD IGNORE
+# ==========================================
+
+# Dependencies
+node_modules/
+**/node_modules/
+.pnp
+.pnp.js
+
+# Git
+.git/
+
+# Environment files
+.env
+.env.*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# IMPORTANT:
+# Do NOT add google-services.json here.
+# It must be included in the EAS upload.
+
+# ==========================================
+# AI CODING ASSISTANT CONFIGURATION
+# ==========================================
+
+# Exclude all AI agent configuration and symlinks
+.agents/
+.claude/
+**/.agents/
+**/.claude/
+**/.agents/**
+**/.claude/**
+
+.cursor/
+**/.cursor/
+**/.cursor/**
+.windsurf/
+**/.windsurf/
+**/.windsurf/**
+
+# Other development assistant configurations
+.copilot/
+**/.copilot/
+
+# ==========================================
+# DEVELOPMENT TOOLS
+# ==========================================
+
+.vscode/
+**/.vscode/
+
+.idea/
+**/.idea/
+
+*.swp
+*.swo
+
+# ==========================================
+# TURBOREPO
+# ==========================================
+
+.turbo/
+**/.turbo/
+
+# ==========================================
+# VERCEL
+# ==========================================
+
+.vercel/
+**/.vercel/
+
+# ==========================================
+# EXPO
+# ==========================================
+
+.expo/
+**/.expo/
+
+expo-env.d.ts
+
+dist/
+web-build/
+
+# ==========================================
+# NATIVE GENERATED FILES
+# ==========================================
+
+# Expo managed workflow
+/ios/
+/android/
+
+# Native build artifacts
+.kotlin/
+*.orig.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# ==========================================
+# BUILD OUTPUTS
+# ==========================================
+
+build/
+**/build/
+
+.next/
+**/.next/
+
+out/
+coverage/
+
+# ==========================================
+# METRO
+# ==========================================
+
+.metro-health-check*
+.metro-cache/
+
+# ==========================================
+# DEBUG LOGS
+# ==========================================
+
+npm-debug.*
+yarn-debug.*
+yarn-error.*
+*.log
+
+# ==========================================
+# OPERATING SYSTEM FILES
+# ==========================================
+
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ==========================================
+# TYPESCRIPT
+# ==========================================
+
+*.tsbuildinfo
+
+# ==========================================
+# BACKEND NOT REQUIRED IN MOBILE BUILD
+# ==========================================
+
+push-backend/
+
+# ==========================================
+# MISCELLANEOUS
+# ==========================================
+
+*.pem
