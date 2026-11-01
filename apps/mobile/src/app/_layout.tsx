@@ -1,85 +1,92 @@
-import { Stack, useRouter } from 'expo-router'
+import { Stack } from 'expo-router'
 import * as SplashScreen from 'expo-splash-screen'
-import { useCallback, useEffect, useState } from 'react'
 import { LogBox, StyleSheet, View } from 'react-native'
+import { useEffect } from 'react'
+import { GestureHandlerRootView } from 'react-native-gesture-handler'
+import { BottomSheetModalProvider } from '@gorhom/bottom-sheet'
+import { QueryClientProvider } from '@tanstack/react-query'
 
+import { useAuthStatus } from '@/auth/useAuthStatus'
+import { useSessionRefresh } from '@/auth/hooks/useSessionRefresh'
 import { useBootstrap } from '@/bootstrap/useBootstrap'
-import SplashAnimation from '@/components/splash/SplashAnimation'
-import { warmUp } from '@/lib/api'
-import { registerForPushNotificationsAsync } from '@/lib/notifications'
+import { SplashGate } from '@/components/splash/SplashGate'
+import { queryClient } from '@/lib/query-client'
+import { setSessionExpiredHandler, warmUp } from '@/lib/api'
+import { clearLocalUserSession } from '@/auth/session'
+import { ThemeProvider, useTheme } from '@/theme/ThemeProvider'
+import { darkColors } from '@/theme/colors'
+import { useNotificationBootstrap } from '@/notifications/useNotificationBootstrap'
+import { StatusBar } from 'expo-status-bar'
+import { authClient } from '@/auth/client'
+import { usePrefsStore } from '@/store/prefs.store'
 
 SplashScreen.preventAutoHideAsync()
+setSessionExpiredHandler(() => clearLocalUserSession('expired'))
 warmUp()
 
 LogBox.ignoreLogs(['expo-notifications: Custom sound', 'Custom sound'])
 
 export default function RootLayout() {
-  const router = useRouter()
+  return (
+    <GestureHandlerRootView style={styles.root}>
+      <QueryClientProvider client={queryClient}>
+        <ThemeProvider>
+          <BottomSheetModalProvider>
+            <RootNavigator />
+          </BottomSheetModalProvider>
+        </ThemeProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
+  )
+}
+
+function RootNavigator() {
+  const status = useAuthStatus()
+  const session = authClient.useSession()
+  const recordAppActivity = usePrefsStore((state) => state.recordAppActivity)
+  useSessionRefresh()
+  useNotificationBootstrap(status)
   const boot = useBootstrap()
-  const [animDone, setAnimDone] = useState(false)
-  const [hasNavigated, setHasNavigated] = useState(false)
-
-  // Hide the native black splash once the JS layout mounts and paints
-  useEffect(() => {
-    SplashScreen.hideAsync().catch(() => {})
-  }, [])
+  const { colors } = useTheme()
+  const { mode } = useTheme()
 
   useEffect(() => {
-    registerForPushNotificationsAsync()
-  }, [])
-
-  const handleSplashFinish = useCallback(() => {
-    setAnimDone(true)
-  }, [])
-
-  useEffect(() => {
-    if (animDone && boot.ready && !hasNavigated) {
-      setHasNavigated(true)
-      router.replace(boot.route as any)
-    }
-  }, [animDone, boot.ready, boot.route, hasNavigated, router])
-
-  const showSplash = !(animDone && boot.ready)
+    const userId = session.data?.user.id
+    if (status !== 'ready' || !userId) return
+    const now = new Date()
+    const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
+    recordAppActivity(userId, localDate)
+  }, [recordAppActivity, session.data?.user.id, status])
 
   return (
-    <View style={styles.root}>
-      <Stack
-        screenOptions={{
-          headerStyle: { backgroundColor: '#121214' },
-          headerTintColor: '#EAB308',
-          headerTitleStyle: { fontWeight: '700' },
-          contentStyle: { backgroundColor: '#0a0a0c' },
-        }}
-      >
-        <Stack.Screen name="index" options={{ title: 'MyDietitian Test Hub' }} />
-        <Stack.Screen name="camera" options={{ title: 'Camera Test', headerShown: false }} />
-        <Stack.Screen name="(onboarding)" options={{ headerShown: false }} />
-        <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      </Stack>
-
-      {showSplash && (
-        <View style={styles.splashOverlay} pointerEvents="auto">
-          <SplashAnimation onFinish={handleSplashFinish} />
+    <>
+      <StatusBar style={mode === 'dark' ? 'light' : 'dark'} />
+      <SplashGate ready={boot.ready && status !== 'booting'}>
+        <View style={styles.navigator}>
+        <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: colors.background } }}>
+          <Stack.Protected guard={status === 'signedOut' || status === 'booting'}>
+            <Stack.Screen name="(auth)" />
+          </Stack.Protected>
+          <Stack.Protected guard={status === 'needsOnboarding'}>
+            <Stack.Screen name="(onboarding)" />
+          </Stack.Protected>
+          <Stack.Protected guard={status === 'ready'}>
+            <Stack.Screen name="(tabs)" />
+            <Stack.Screen name="account" />
+            <Stack.Screen name="notifications" />
+            <Stack.Screen name="camera" options={{ headerShown: false }} />
+          </Stack.Protected>
+          <Stack.Protected guard={__DEV__ && status === 'ready'}>
+            <Stack.Screen name="dev/index" />
+          </Stack.Protected>
+        </Stack>
         </View>
-      )}
-    </View>
+      </SplashGate>
+    </>
   )
 }
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
-    backgroundColor: '#000000',
-  },
-  splashOverlay: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    bottom: 0,
-    backgroundColor: '#000000',
-    zIndex: 999999,
-    elevation: 999999,
-  },
+  root: { flex: 1, backgroundColor: darkColors.background },
+  navigator: { flex: 1 },
 })

@@ -8,6 +8,7 @@ import Animated, {
   withDelay, withRepeat, withSequence, withTiming, type SharedValue,
 } from "react-native-reanimated";
 import { BOWL, BREAD, BROC, FACE, GRADS, HEART, LEAF, RICE, RING_LEN, RING_PATH, RINGFORK, Shape, TOMATO } from "./splashAssets";
+import { darkColors } from "@/theme/colors";
 
 
 const AG = Animated.createAnimatedComponent(G);
@@ -43,7 +44,7 @@ const RingFork = () => <>{shapes(RINGFORK)}</>;
 // ---------- animated wrappers ----------
 function Rise({ t, delay, children }: { t: TV; delay: number; children: React.ReactNode }) {
   const props = useAnimatedProps(() => {
-    const p = pr(t.value, delay, 0.7);
+    const p = pr(t.get(), delay, 0.7);
     return { opacity: clamp(p * 2.5), transform: [{ translateY: (1 - back(p)) * 140 }] } as any;
   });
   return <AG animatedProps={props}>{children}</AG>;
@@ -53,21 +54,21 @@ function Pop({
   t, delay, cx, cy, fadeAt, children,
 }: { t: TV; delay: number; cx: number; cy: number; fadeAt?: number; children: React.ReactNode }) {
   const props = useAnimatedProps(() => {
-    const p = pr(t.value, delay, 0.7);
-    const f = fadeAt === undefined ? 1 : pr(t.value, fadeAt, 0.4);
+    const p = pr(t.get(), delay, 0.7);
+    const f = fadeAt === undefined ? 1 : pr(t.get(), fadeAt, 0.4);
     return { opacity: clamp(p * 3) * f, transform: around(cx, cy, 0.3 + 0.7 * back(p)) } as any;
   });
   return <AG animatedProps={props}>{children}</AG>;
 }
 
 function Beat({ beat, children }: { beat: TV; children: React.ReactNode }) {
-  const props = useAnimatedProps(() => ({ transform: around(512, 318, beat.value) } as any));
+  const props = useAnimatedProps(() => ({ transform: around(512, 318, beat.get()) } as any));
   return <AG animatedProps={props}>{children}</AG>;
 }
 
 function Sparkle({ t, at, x, y, r, color }: { t: TV; at: number; x: number; y: number; r: number; color: string }) {
   const props = useAnimatedProps(() => {
-    const k = Math.sin(pr(t.value, at, 0.8) * Math.PI);
+    const k = Math.sin(pr(t.get(), at, 0.8) * Math.PI);
     return { opacity: k > 0 ? 1 : 0, transform: around(x, y, Math.max(k, 0.001) * 1.4) } as any;
   });
   return <AG animatedProps={props}><Circle cx={x} cy={y} r={r} fill={color} /></AG>;
@@ -79,7 +80,7 @@ const SERIF = Platform.select({ ios: "Georgia", default: "serif" });
 function Letter({ t, ch, at, color, italic, size, spacing }: {
   t: TV; ch: string; at: number; color: string; italic?: boolean; size: number; spacing: number;
 }) {
-  const style = useAnimatedStyle(() => ({ opacity: outq(pr(t.value, at, 0.35)) }));
+  const style = useAnimatedStyle(() => ({ opacity: outq(pr(t.get(), at, 0.35)) }));
   return (
     <Animated.Text
       style={[{ color, fontSize: size, fontFamily: SERIF, fontStyle: italic ? "italic" : "normal", letterSpacing: spacing }, style]}
@@ -93,7 +94,7 @@ function Line1({ t, text, start, color, italic, size, spacing }: {
   t: TV; text: string; start: number; color: string; italic?: boolean; size: number; spacing: number;
 }) {
   const style = useAnimatedStyle(() => ({
-    transform: [{ translateY: (1 - outq(pr(t.value, start, 0.6))) * 10 }],
+    transform: [{ translateY: (1 - outq(pr(t.get(), start, 0.6))) * 10 }],
   }));
   return (
     <Animated.View style={[{ flexDirection: "row", height: size * 1.25 }, style]}>
@@ -107,15 +108,15 @@ function Line1({ t, text, start, color, italic, size, spacing }: {
 function Underline({ t, width }: { t: TV; width: number }) {
   const k = width / 380;
   const left = useAnimatedProps(() => {
-    const p = outq(pr(t.value, 6.6, 0.6));
+    const p = outq(pr(t.get(), 6.6, 0.6));
     return { x1: 178 - 28 * p, opacity: p } as any;
   });
   const right = useAnimatedProps(() => {
-    const p = outq(pr(t.value, 6.6, 0.6));
+    const p = outq(pr(t.get(), 6.6, 0.6));
     return { x2: 202 + 28 * p, opacity: p } as any;
   });
   const heart = useAnimatedProps(() => {
-    const p = pr(t.value, 6.6, 0.6);
+    const p = pr(t.get(), 6.6, 0.6);
     return { opacity: outq(p), transform: around(190, 436, 0.4 + 0.6 * back(p)) } as any;
   });
   return (
@@ -137,9 +138,11 @@ type Props = {
   onFinish?: () => void;
   /** Real-time length of the animation. ~4500ms is a good launch splash. */
   durationMs?: number;
+  /** Starts the animation only after the native splash has been hidden. */
+  play?: boolean;
 };
 
-export default function SplashAnimation({ onFinish, durationMs = 4600 }: Props) {
+export default function SplashAnimation({ onFinish, durationMs = 4600, play = true }: Props) {
   const { width: sw } = useWindowDimensions();
   const W = Math.min(sw * 0.9, 420);
   const k = W / 380;
@@ -148,32 +151,33 @@ export default function SplashAnimation({ onFinish, durationMs = 4600 }: Props) 
   const beat = useSharedValue(1);
 
   useEffect(() => {
-    t.value = withTiming(TL_END, { duration: durationMs, easing: Easing.linear }, (done) => {
+    if (!play) return;
+    t.set(withTiming(TL_END, { duration: durationMs, easing: Easing.linear }, (done) => {
       if (done && onFinish) runOnJS(onFinish)();
-    });
+    }));
     // heartbeat keeps going if the splash is held while the backend is still answering
-    beat.value = withDelay(
+    beat.set(withDelay(
       (3.6 / TL_END) * durationMs,
       withRepeat(withSequence(withTiming(1.12, { duration: 450 }), withTiming(1, { duration: 450 })), -1),
-    );
-  }, []);
+    ));
+  }, [durationMs, onFinish, play]);
 
   // ring is revealed by an animated stroke inside a mask
   const ringStroke = useAnimatedProps(() => ({
-    strokeDashoffset: RING_LEN * (1 - cub(pr(t.value, 3.2, 1.4))),
+    strokeDashoffset: RING_LEN * (1 - cub(pr(t.get(), 3.2, 1.4))),
   }));
-  const ringVisible = useAnimatedProps(() => ({ opacity: pr(t.value, 3.2, 1.4) > 0 ? 1 : 0 } as any));
+  const ringVisible = useAnimatedProps(() => ({ opacity: pr(t.get(), 3.2, 1.4) > 0 ? 1 : 0 } as any));
   const forkPop = useAnimatedProps(() => {
-    const p = pr(t.value, 4.5, 0.6);
+    const p = pr(t.get(), 4.5, 0.6);
     return { opacity: clamp(p * 3), transform: around(850, 470, 0.4 + 0.6 * back(p)) } as any;
   });
   const ripple = useAnimatedProps(() => {
-    const p = pr(t.value, 4.9, 1);
+    const p = pr(t.get(), 4.9, 1);
     return { r: 300 + 150 * outq(p), opacity: p > 0 && p < 1 ? 0.4 * (1 - p) : 0 };
   });
 
   return (
-    <View style={styles.root}>
+    <View style={[styles.root, { backgroundColor: darkColors.background }]}>
       <Svg width={W} height={W * (360 / 380)} viewBox="0 0 380 360">
         <G transform="translate(16 28) scale(0.34)">
           <Defs>
@@ -238,5 +242,5 @@ export default function SplashAnimation({ onFinish, durationMs = 4600 }: Props) 
 }
 
 const styles = StyleSheet.create({
-  root: { flex: 1, backgroundColor: "#000", alignItems: "center", justifyContent: "center" },
+  root: { flex: 1, alignItems: "center", justifyContent: "center" },
 });

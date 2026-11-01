@@ -1,15 +1,6 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { Redirect } from 'expo-router'
 
 export default function LoginScreen() {
-  return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Login</Text>
-    </View>
-  )
+  return <Redirect href="/sign-in" />
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  text: { color: '#fff', fontSize: 18 },
-})
 

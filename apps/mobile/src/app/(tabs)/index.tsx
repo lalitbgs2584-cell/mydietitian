@@ -1,15 +1,14 @@
-import { StyleSheet, Text, View } from 'react-native'
+import { Screen } from '@/components/ui/Screen'
+import { HomeDashboard } from '@/components/home/HomeDashboard'
+import { usePermissionPrompt } from '@/notifications/usePermissionPrompt'
+import { NotificationPrePrompt } from '@/components/auth/NotificationPrePrompt'
 
-export default function TabsIndexScreen() {
+export default function HomeScreen() {
+  const notificationPrompt = usePermissionPrompt()
   return (
-    <View style={styles.container}>
-      <Text style={styles.text}>Tabs Home</Text>
-    </View>
+    <Screen edges={['left', 'right']}>
+      <HomeDashboard />
+      <NotificationPrePrompt visible={notificationPrompt.visible} onClose={notificationPrompt.close} />
+    </Screen>
   )
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' },
-  text: { color: '#fff', fontSize: 18 },
-})
-

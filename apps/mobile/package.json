@@ -4,8 +4,13 @@
   "version": "1.0.0",
   "dependencies": {
     "@better-auth/expo": "^1.7.7",
+    "@expo-google-fonts/dm-sans": "^0.4.2",
+    "@expo-google-fonts/manrope": "^0.4.3",
     "@expo/ui": "~57.0.26",
+    "@expo/vector-icons": "^15.0.2",
     "@gorhom/bottom-sheet": "^5.2.14",
+    "@hookform/resolvers": "^7.0.1",
+    "@mydietitian/auth": "workspace:*",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-masked-view/masked-view": "0.3.2",
     "@sentry/react-native": "~7.11.0",
@@ -60,9 +65,11 @@
     "zustand": "^5.0.16"
   },
   "devDependencies": {
+    "@babel/core": "^7.25.2",
     "@types/react": "~19.2.2",
-    "typescript": "~6.0.3",
-    "@babel/core": "^7.25.2"
+    "eslint": "^9.0.0",
+    "eslint-config-expo": "~57.0.2",
+    "typescript": "~6.0.3"
   },
   "scripts": {
     "start": "expo start",

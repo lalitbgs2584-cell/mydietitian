@@ -1,447 +1,253 @@
-import { CameraView, CameraType, FlashMode, useCameraPermissions } from 'expo-camera'
+import { CameraView, type BarcodeScanningResult, type BarcodeType, type CameraType, type FlashMode, useCameraPermissions } from 'expo-camera'
 import { Image } from 'expo-image'
 import { useRouter } from 'expo-router'
-import { useRef, useState } from 'react'
-import { ActivityIndicator, Pressable, StyleSheet, Text, View } from 'react-native'
+import { useEffect, useRef, useState } from 'react'
+import { ActivityIndicator, Pressable, StyleSheet, View } from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
+import { Ionicons } from '@expo/vector-icons'
+import * as ImagePicker from 'expo-image-picker'
+import Animated, { cancelAnimation, Easing, interpolate, useAnimatedStyle, useSharedValue, withRepeat, withTiming } from 'react-native-reanimated'
+import { AppText } from '@/components/ui/AppText'
+import { Button } from '@/components/ui/Button'
+import { useTheme } from '@/theme/ThemeProvider'
+import { alpha } from '@/theme/colors'
+
+const supportedBarcodeTypes: BarcodeType[] = ['ean13', 'ean8', 'upc_a', 'upc_e', 'code128', 'code39', 'code93', 'itf14', 'codabar', 'qr', 'pdf417', 'aztec', 'datamatrix']
 
 export default function CameraScreen() {
   const router = useRouter()
   const insets = useSafeAreaInsets()
+  const { colors, spacing, radius, sizes } = useTheme()
 
   const [permission, requestPermission] = useCameraPermissions()
   const [facing, setFacing] = useState<CameraType>('back')
   const [flash, setFlash] = useState<FlashMode>('off')
   const [capturedPhoto, setCapturedPhoto] = useState<string | null>(null)
+  const [photoSource, setPhotoSource] = useState<'camera' | 'gallery' | null>(null)
   const [isCapturing, setIsCapturing] = useState(false)
-
+  const [scanMode, setScanMode] = useState<'food' | 'barcode'>('food')
+  const [barcodeResult, setBarcodeResult] = useState<string | null>(null)
+  const [frameHeight, setFrameHeight] = useState(0)
   const cameraRef = useRef<CameraView>(null)
+  const barcodeLocked = useRef(false)
+  const scanProgress = useSharedValue(0)
+  const scanLineStyle = useAnimatedStyle(() => ({
+    transform: [{ translateY: interpolate(scanProgress.value, [0, 1], [0, Math.max(0, frameHeight - 18)]) }],
+  }))
 
-  const toggleFacing = () => {
-    setFacing((current) => (current === 'back' ? 'front' : 'back'))
-  }
+  useEffect(() => {
+    scanProgress.value = withRepeat(withTiming(1, { duration: 1900, easing: Easing.inOut(Easing.quad) }), -1, true)
+    return () => cancelAnimation(scanProgress)
+  }, [scanProgress])
 
-  const toggleFlash = () => {
-    setFlash((current) => {
-      if (current === 'off') return 'on'
-      if (current === 'on') return 'auto'
-      return 'off'
-    })
-  }
+  const toggleFacing = () => setFacing((current) => current === 'back' ? 'front' : 'back')
+  const toggleFlash = () => setFlash((current) => current === 'off' ? 'on' : current === 'on' ? 'auto' : 'off')
 
   const takePhoto = async () => {
     if (!cameraRef.current || isCapturing) return
-
     try {
       setIsCapturing(true)
-      const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
-        skipProcessing: false,
-      })
+      const photo = await cameraRef.current.takePictureAsync({ quality: 0.85, skipProcessing: false })
       if (photo?.uri) {
         setCapturedPhoto(photo.uri)
+        setPhotoSource('camera')
       }
-    } catch (err) {
-      console.error('Failed to capture photo:', err)
+    } catch (error) {
+      if (__DEV__) console.warn('Photo capture failed:', error)
     } finally {
       setIsCapturing(false)
     }
   }
 
-  // 1. Loading permission state
-  if (!permission) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#EAB308" />
-        <Text style={styles.loadingText}>Loading camera permissions...</Text>
-      </View>
-    )
+  const chooseFromGallery = async () => {
+    try {
+      const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], allowsEditing: true, quality: 0.9 })
+      if (!result.canceled && result.assets[0]?.uri) {
+        setCapturedPhoto(result.assets[0].uri)
+        setPhotoSource('gallery')
+      }
+    } catch (error) {
+      if (__DEV__) console.warn('Gallery selection failed:', error)
+    }
   }
 
-  // 2. Permission not granted state
-  if (!permission.granted) {
-    return (
-      <View style={styles.permissionContainer}>
-        <View style={styles.permissionCard}>
-          <Text style={styles.cameraIcon}>📸</Text>
-          <Text style={styles.permissionTitle}>Camera Access Required</Text>
-          <Text style={styles.permissionDescription}>
-            MyDietitian uses your camera to test hardware functionality, take photos of meals, and
-            scan ingredients.
-          </Text>
+  const selectScanMode = (mode: 'food' | 'barcode') => {
+    setScanMode(mode)
+    setBarcodeResult(null)
+    barcodeLocked.current = false
+  }
 
-          <Pressable
-            style={({ pressed }) => [styles.primaryButton, pressed && styles.buttonPressed]}
-            onPress={requestPermission}
-          >
-            <Text style={styles.primaryButtonText}>Grant Camera Permission</Text>
-          </Pressable>
+  const handleBarcodeScanned = (result: BarcodeScanningResult) => {
+    if (barcodeLocked.current) return
+    barcodeLocked.current = true
+    setBarcodeResult(result.data)
+  }
 
-          <Pressable
-            style={({ pressed }) => [styles.secondaryButton, pressed && styles.buttonPressed]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.secondaryButtonText}>Back to Home</Text>
-          </Pressable>
+  if (!permission && !capturedPhoto) {
+    return <View style={[styles.center, { backgroundColor: colors.background, padding: spacing.xl }]}>
+      <ActivityIndicator size="large" color={colors.primary} />
+      <AppText variant="body" tone="muted">Preparing your camera…</AppText>
+    </View>
+  }
+
+  if (permission && !permission.granted && !capturedPhoto) {
+    return <View style={[styles.center, { backgroundColor: colors.background, padding: spacing.xl + insets.left }]}>
+      <View style={[styles.permissionCard, { backgroundColor: colors.card, borderColor: colors.border, borderRadius: radius.xl, padding: spacing.xl }]}>
+        <View style={[styles.permissionIcon, { backgroundColor: alpha(colors.primary, 0.12), borderRadius: radius.lg }]}>
+          <Ionicons name="camera-outline" size={sizes.headerIcon + spacing.md} color={colors.primary} />
         </View>
+        <AppText variant="h2" style={styles.centerText}>Camera access needed</AppText>
+        <AppText variant="body" tone="muted" style={styles.centerText}>Allow camera access to take a meal photo and keep your food journal up to date.</AppText>
+        <Button label="Choose from gallery" variant="secondary" onPress={() => void chooseFromGallery()} />
+        <Button label="Allow camera access" onPress={() => void requestPermission()} />
+        <Button label="Back to home" variant="ghost" onPress={() => router.back()} />
       </View>
-    )
+    </View>
   }
 
-  // 3. Captured photo preview state
   if (capturedPhoto) {
-    return (
-      <View style={[styles.container, { backgroundColor: '#000' }]}>
-        <Image
-          source={{ uri: capturedPhoto }}
-          style={StyleSheet.absoluteFill}
-          contentFit="contain"
-        />
-
-        <View
-          style={[
-            styles.previewOverlay,
-            { paddingTop: insets.top + 16, paddingBottom: insets.bottom + 24 },
-          ]}
-        >
-          <View style={styles.previewBadge}>
-            <Text style={styles.previewBadgeText}>✓ Photo Captured Successfully</Text>
-          </View>
-
-          <View style={styles.previewActions}>
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.retakeButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => setCapturedPhoto(null)}
-            >
-              <Text style={styles.retakeButtonText}>Retake Photo</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionButton,
-                styles.doneButton,
-                pressed && styles.buttonPressed,
-              ]}
-              onPress={() => router.back()}
-            >
-              <Text style={styles.doneButtonText}>Done</Text>
-            </Pressable>
-          </View>
+    return <View style={[styles.fullScreen, { backgroundColor: colors.background }]}>
+      <Image source={{ uri: capturedPhoto }} style={StyleSheet.absoluteFill} contentFit="contain" />
+      <View style={[styles.previewOverlay, { paddingTop: insets.top + spacing.lg, paddingBottom: insets.bottom + spacing.xl, paddingHorizontal: spacing.lg }]}>
+        <View style={[styles.previewMessage, { backgroundColor: alpha(colors.card, 0.94), borderColor: colors.border, borderRadius: radius.pill }]}>
+          <Ionicons name="checkmark-circle" size={sizes.icon} color={colors.green} />
+          <AppText variant="caption" style={{ color: colors.foreground }}>{photoSource === 'gallery' ? 'Photo selected from gallery' : 'Meal photo captured'}</AppText>
+        </View>
+        <View style={[styles.previewActions, { gap: spacing.sm }]}>
+          <Button label={photoSource === 'gallery' ? 'Choose another' : 'Retake'} variant="secondary" onPress={() => { setCapturedPhoto(null); setPhotoSource(null) }} />
+          <Button label="Done" onPress={() => router.back()} />
         </View>
       </View>
-    )
+    </View>
   }
 
-  // 4. Live camera view
   return (
-    <View style={styles.container}>
-      <CameraView ref={cameraRef} style={StyleSheet.absoluteFill} facing={facing} flash={flash}>
-        {/* Top Controls */}
-        <View style={[styles.topControls, { paddingTop: insets.top + 16 }]}>
-          <Pressable
-            style={({ pressed }) => [styles.circleButton, pressed && styles.buttonPressed]}
-            onPress={() => router.back()}
-          >
-            <Text style={styles.circleButtonText}>✕</Text>
+    <View style={[styles.fullScreen, { backgroundColor: colors.background }]}>
+      <CameraView
+        ref={cameraRef}
+        style={StyleSheet.absoluteFill}
+        facing={facing}
+        flash={flash}
+        onBarcodeScanned={scanMode === 'barcode' && !barcodeResult ? handleBarcodeScanned : undefined}
+        barcodeScannerSettings={{ barcodeTypes: supportedBarcodeTypes }}
+      />
+      <View style={StyleSheet.absoluteFill}>
+        <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: alpha(colors.background, 0.12) }]} />
+        <View style={[styles.topBar, { paddingTop: insets.top + spacing.sm, paddingHorizontal: spacing.lg }]}>
+          <Pressable accessibilityRole="button" accessibilityLabel="Close camera" onPress={() => router.back()} style={[styles.closeButton, { backgroundColor: alpha(colors.card, 0.82), borderColor: alpha(colors.foreground, 0.12) }]}>
+            <Ionicons name="close" size={sizes.headerIcon} color={colors.foreground} />
           </Pressable>
+          <View style={[styles.titlePill, { backgroundColor: alpha(colors.card, 0.82), borderColor: alpha(colors.foreground, 0.12), borderRadius: radius.pill }]}>
+            <View style={[styles.liveDot, { backgroundColor: colors.primary }]} />
+            <AppText variant="caption" style={{ color: colors.foreground }}>MEAL CAMERA</AppText>
+          </View>
+          <View style={styles.topSpacer} />
+        </View>
 
-          <View style={styles.topRightControls}>
-            <Pressable
-              style={({ pressed }) => [styles.pillButton, pressed && styles.buttonPressed]}
-              onPress={toggleFlash}
-            >
-              <Text style={styles.pillButtonText}>⚡ {flash.toUpperCase()}</Text>
-            </Pressable>
-
-            <Pressable
-              style={({ pressed }) => [styles.circleButton, pressed && styles.buttonPressed]}
-              onPress={toggleFacing}
-            >
-              <Text style={styles.circleButtonText}>🔄</Text>
-            </Pressable>
+        <View style={styles.viewfinderArea} pointerEvents="none">
+          <View style={[styles.guidePill, { backgroundColor: alpha(colors.card, 0.78), borderColor: alpha(colors.primary, 0.42), borderRadius: radius.pill }]}>
+            <Ionicons name="sparkles-outline" size={sizes.icon} color={colors.goldSoft} />
+            <AppText variant="caption" style={{ color: colors.foreground }}>{scanMode === 'barcode' ? 'Align a barcode inside the guide' : 'Frame your meal in the guide'}</AppText>
+          </View>
+          <View onLayout={(event) => setFrameHeight(event.nativeEvent.layout.height)} style={styles.focusFrame}>
+            <View style={[styles.corner, styles.topLeft, { borderColor: colors.goldSoft }]} />
+            <View style={[styles.corner, styles.topRight, { borderColor: colors.goldSoft }]} />
+            <View style={[styles.corner, styles.bottomLeft, { borderColor: colors.goldSoft }]} />
+            <View style={[styles.corner, styles.bottomRight, { borderColor: colors.goldSoft }]} />
+            <View style={[styles.focusCenter, { borderColor: alpha(colors.foreground, 0.34) }]} />
+            <Animated.View style={[styles.scanLine, { backgroundColor: colors.goldSoft, shadowColor: colors.primary }, scanLineStyle]} />
           </View>
         </View>
 
-        {/* Viewfinder Target */}
-        <View style={styles.viewfinderContainer} pointerEvents="none">
-          <View style={styles.reticle}>
-            <View style={[styles.reticleCorner, styles.reticleTopLeft]} />
-            <View style={[styles.reticleCorner, styles.reticleTopRight]} />
-            <View style={[styles.reticleCorner, styles.reticleBottomLeft]} />
-            <View style={[styles.reticleCorner, styles.reticleBottomRight]} />
+        <View style={[styles.bottomPanel, { paddingBottom: insets.bottom + spacing.md, paddingHorizontal: spacing.lg }]}>
+          <View style={[styles.cameraInfo, { backgroundColor: alpha(colors.card, 0.88), borderColor: alpha(colors.foreground, 0.1), borderRadius: radius.xl }]}>
+            <AppText variant="caption" style={{ color: colors.goldSoft }}>{barcodeResult ? 'BARCODE FOUND' : scanMode === 'barcode' ? 'READY TO SCAN' : 'A LITTLE LIGHT HELPS'}</AppText>
+            {barcodeResult ? <>
+              <AppText numberOfLines={2} selectable variant="body" style={{ textAlign: 'center' }}>{barcodeResult}</AppText>
+              <Pressable accessibilityRole="button" onPress={() => selectScanMode('barcode')}><AppText variant="caption" style={{ color: colors.goldSoft }}>Scan another</AppText></Pressable>
+            </> : <AppText variant="caption" style={{ color: alpha(colors.foreground, 0.72) }}>{scanMode === 'barcode' ? 'Hold the barcode inside the frame.' : 'Keep the whole plate inside the frame.'}</AppText>}
           </View>
-          <Text style={styles.viewfinderHint}>Align meal or object in frame</Text>
+          <View style={styles.scanModes}>
+            <ScanModeButton label="Food" icon="restaurant-outline" selected={scanMode === 'food'} onPress={() => selectScanMode('food')} />
+            <ScanModeButton label="Barcode" icon="barcode-outline" selected={scanMode === 'barcode'} onPress={() => selectScanMode('barcode')} />
+            <ScanModeButton label="Gallery" icon="images-outline" onPress={() => void chooseFromGallery()} />
+          </View>
+          <View style={styles.captureDock}>
+            <DockControl label="Flash" value={flash.toUpperCase()} icon={flash === 'off' ? 'flash-off-outline' : 'flash-outline'} onPress={toggleFlash} />
+            <Pressable accessibilityRole="button" accessibilityLabel="Take meal photo" onPress={() => void takePhoto()} disabled={isCapturing} style={({ pressed }) => [styles.shutterOuter, { borderColor: colors.primary, backgroundColor: alpha(colors.card, 0.7) }, pressed && styles.pressed, isCapturing && styles.capturing]}>
+              <View style={[styles.shutterInner, { backgroundColor: colors.primary }]}>
+                {isCapturing ? <ActivityIndicator color={colors.primaryForeground} size="small" /> : <Ionicons name="scan-outline" size={sizes.headerIcon + spacing.xs} color={colors.primaryForeground} />}
+              </View>
+            </Pressable>
+            <DockControl label="Camera" value={facing === 'back' ? 'Rear' : 'Front'} icon="camera-reverse-outline" onPress={toggleFacing} />
+          </View>
+          <AppText variant="caption" tone="muted" style={styles.dockHint}>Tap to capture · Hold steady for a clearer photo</AppText>
         </View>
-
-        {/* Bottom Shutter Controls */}
-        <View style={[styles.bottomControls, { paddingBottom: insets.bottom + 24 }]}>
-          <Text style={styles.cameraModeText}>
-            {facing === 'back' ? 'Rear Camera' : 'Front Camera'}
-          </Text>
-
-          <Pressable
-            style={({ pressed }) => [styles.shutterOuterRing, pressed && styles.buttonPressed]}
-            onPress={takePhoto}
-            disabled={isCapturing}
-          >
-            <View style={styles.shutterInnerCircle}>
-              {isCapturing && <ActivityIndicator color="#000" size="small" />}
-            </View>
-          </Pressable>
-        </View>
-      </CameraView>
+      </View>
     </View>
   )
 }
 
+function ScanModeButton({ label, icon, selected = false, onPress }: { label: string; icon: 'restaurant-outline' | 'barcode-outline' | 'images-outline'; selected?: boolean; onPress: () => void }) {
+  const { colors, spacing, radius } = useTheme()
+  return (
+    <Pressable accessibilityRole="button" accessibilityState={{ selected }} accessibilityLabel={label === 'Gallery' ? 'Upload photo from gallery' : `${label} scan`} onPress={onPress} style={({ pressed }) => [
+      styles.scanModeButton,
+      { backgroundColor: alpha(selected ? colors.primary : colors.card, selected ? 0.2 : 0.78), borderColor: selected ? alpha(colors.primary, 0.72) : alpha(colors.foreground, 0.14), borderRadius: radius.lg, gap: spacing.xs },
+      pressed && styles.pressed,
+    ]}>
+      <Ionicons name={icon} size={17} color={selected ? colors.goldSoft : colors.foreground} />
+      <AppText variant="caption" style={{ color: selected ? colors.goldSoft : colors.foreground }}>{label}</AppText>
+    </Pressable>
+  )
+}
+
+function DockControl({ label, value, icon, onPress }: { label: string; value: string; icon: 'flash-off-outline' | 'flash-outline' | 'camera-reverse-outline'; onPress: () => void }) {
+  const { colors, sizes, spacing } = useTheme()
+  return (
+    <Pressable accessibilityRole="button" accessibilityLabel={`${label}: ${value}`} onPress={onPress} style={({ pressed }) => [styles.dockControl, pressed && styles.pressed]}>
+      <View style={[styles.dockIcon, { width: sizes.touchMin, height: sizes.touchMin, backgroundColor: alpha(colors.card, 0.9), borderColor: alpha(colors.foreground, 0.14), marginBottom: spacing.xs }]}>
+        <Ionicons name={icon} size={sizes.icon} color={colors.foreground} />
+      </View>
+      <AppText variant="caption" style={{ color: colors.foreground }}>{value}</AppText>
+    </Pressable>
+  )
+}
+
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: '#000',
-  },
-  centerContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0a0a0c',
-    gap: 16,
-  },
-  loadingText: {
-    color: '#ffffff',
-    fontSize: 16,
-  },
-  permissionContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: '#0a0a0c',
-    padding: 24,
-  },
-  permissionCard: {
-    width: '100%',
-    maxWidth: 380,
-    alignItems: 'center',
-    backgroundColor: '#16161a',
-    padding: 24,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: '#26262a',
-    gap: 14,
-  },
-  cameraIcon: {
-    fontSize: 48,
-    marginBottom: 4,
-  },
-  permissionTitle: {
-    fontSize: 20,
-    fontWeight: '700',
-    color: '#ffffff',
-    textAlign: 'center',
-  },
-  permissionDescription: {
-    fontSize: 14,
-    color: '#9999a0',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 8,
-  },
-  primaryButton: {
-    backgroundColor: '#CA8A04',
-    paddingVertical: 14,
-    paddingHorizontal: 28,
-    borderRadius: 24,
-    width: '100%',
-    alignItems: 'center',
-  },
-  primaryButtonText: {
-    color: '#000000',
-    fontWeight: '700',
-    fontSize: 16,
-  },
-  secondaryButton: {
-    paddingVertical: 10,
-    paddingHorizontal: 20,
-  },
-  secondaryButtonText: {
-    color: '#888890',
-    fontSize: 14,
-  },
-  buttonPressed: {
-    opacity: 0.8,
-    transform: [{ scale: 0.97 }],
-  },
-  topControls: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  topRightControls: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  circleButton: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  circleButtonText: {
-    color: '#ffffff',
-    fontSize: 18,
-    fontWeight: '600',
-  },
-  pillButton: {
-    paddingHorizontal: 14,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  pillButtonText: {
-    color: '#ffffff',
-    fontSize: 13,
-    fontWeight: '700',
-  },
-  viewfinderContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  reticle: {
-    width: 250,
-    height: 250,
-    position: 'relative',
-  },
-  reticleCorner: {
-    position: 'absolute',
-    width: 28,
-    height: 28,
-    borderColor: '#CA8A04',
-  },
-  reticleTopLeft: {
-    top: 0,
-    left: 0,
-    borderTopWidth: 3,
-    borderLeftWidth: 3,
-    borderTopLeftRadius: 12,
-  },
-  reticleTopRight: {
-    top: 0,
-    right: 0,
-    borderTopWidth: 3,
-    borderRightWidth: 3,
-    borderTopRightRadius: 12,
-  },
-  reticleBottomLeft: {
-    bottom: 0,
-    left: 0,
-    borderBottomWidth: 3,
-    borderLeftWidth: 3,
-    borderBottomLeftRadius: 12,
-  },
-  reticleBottomRight: {
-    bottom: 0,
-    right: 0,
-    borderBottomWidth: 3,
-    borderRightWidth: 3,
-    borderBottomRightRadius: 12,
-  },
-  viewfinderHint: {
-    color: 'rgba(255, 255, 255, 0.85)',
-    marginTop: 16,
-    fontSize: 14,
-    fontWeight: '500',
-    textShadowColor: 'rgba(0, 0, 0, 0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 3,
-  },
-  bottomControls: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 12,
-  },
-  cameraModeText: {
-    color: 'rgba(255, 255, 255, 0.7)',
-    fontSize: 12,
-    fontWeight: '600',
-    textTransform: 'uppercase',
-    letterSpacing: 1,
-  },
-  shutterOuterRing: {
-    width: 78,
-    height: 78,
-    borderRadius: 39,
-    borderWidth: 4,
-    borderColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-    backgroundColor: 'transparent',
-  },
-  shutterInnerCircle: {
-    width: 62,
-    height: 62,
-    borderRadius: 31,
-    backgroundColor: '#ffffff',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  previewOverlay: {
-    flex: 1,
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  previewBadge: {
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 20,
-    borderWidth: 1,
-    borderColor: 'rgba(202, 138, 4, 0.6)',
-  },
-  previewBadgeText: {
-    color: '#FACC15',
-    fontSize: 14,
-    fontWeight: '600',
-  },
-  previewActions: {
-    flexDirection: 'row',
-    gap: 16,
-    width: '100%',
-    maxWidth: 400,
-  },
-  actionButton: {
-    flex: 1,
-    paddingVertical: 14,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  retakeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderWidth: 1,
-    borderColor: 'rgba(255, 255, 255, 0.4)',
-  },
-  retakeButtonText: {
-    color: '#ffffff',
-    fontSize: 15,
-    fontWeight: '600',
-  },
-  doneButton: {
-    backgroundColor: '#CA8A04',
-  },
-  doneButtonText: {
-    color: '#000000',
-    fontSize: 15,
-    fontWeight: '700',
-  },
+  fullScreen: { flex: 1 },
+  center: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },
+  permissionCard: { width: '100%', maxWidth: 380, alignItems: 'center', borderWidth: 1, gap: 16 },
+  permissionIcon: { width: 64, height: 64, alignItems: 'center', justifyContent: 'center' },
+  centerText: { textAlign: 'center' },
+  previewOverlay: { flex: 1, alignItems: 'center', justifyContent: 'space-between' },
+  previewMessage: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1 },
+  previewActions: { flexDirection: 'row', width: '100%', maxWidth: 400 },
+  topBar: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
+  closeButton: { width: 44, height: 44, borderRadius: 22, borderWidth: 1, alignItems: 'center', justifyContent: 'center' },
+  titlePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, height: 38, borderWidth: 1 },
+  liveDot: { width: 7, height: 7, borderRadius: 4 },
+  topSpacer: { width: 44, height: 44 },
+  viewfinderArea: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 16 },
+  guidePill: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 14, paddingVertical: 8, borderWidth: 1 },
+  focusFrame: { width: '82%', maxWidth: 330, height: '48%', maxHeight: 340, minHeight: 220, position: 'relative', alignItems: 'center', justifyContent: 'center' },
+  scanLine: { position: 'absolute', top: 9, left: 15, right: 15, height: 2, borderRadius: 2, shadowOpacity: 0.85, shadowRadius: 9, shadowOffset: { width: 0, height: 0 }, elevation: 4 },
+  corner: { position: 'absolute', width: 34, height: 34, borderWidth: 3 },
+  topLeft: { top: 0, left: 0, borderRightWidth: 0, borderBottomWidth: 0, borderTopLeftRadius: 12 },
+  topRight: { top: 0, right: 0, borderLeftWidth: 0, borderBottomWidth: 0, borderTopRightRadius: 12 },
+  bottomLeft: { bottom: 0, left: 0, borderRightWidth: 0, borderTopWidth: 0, borderBottomLeftRadius: 12 },
+  bottomRight: { bottom: 0, right: 0, borderLeftWidth: 0, borderTopWidth: 0, borderBottomRightRadius: 12 },
+  focusCenter: { width: 8, height: 8, borderWidth: 1, borderRadius: 4 },
+  bottomPanel: { gap: 14 },
+  cameraInfo: { alignSelf: 'center', alignItems: 'center', gap: 4, paddingHorizontal: 18, paddingVertical: 10, borderWidth: 1 },
+  scanModes: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
+  scanModeButton: { flex: 1, minWidth: 0, height: 42, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', borderWidth: 1 },
+  captureDock: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-around' },
+  dockControl: { minWidth: 72, alignItems: 'center', justifyContent: 'center' },
+  dockIcon: { borderWidth: 1, borderRadius: 999, alignItems: 'center', justifyContent: 'center' },
+  shutterOuter: { width: 82, height: 82, borderRadius: 41, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
+  shutterInner: { width: 64, height: 64, borderRadius: 32, alignItems: 'center', justifyContent: 'center' },
+  capturing: { opacity: 0.8 },
+  pressed: { opacity: 0.76, transform: [{ scale: 0.96 }] },
+  dockHint: { textAlign: 'center' },
 })

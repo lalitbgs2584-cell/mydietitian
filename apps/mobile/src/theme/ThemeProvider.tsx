@@ -1,34 +1,32 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
-import { useColorScheme } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useCallback, useContext, useEffect, useMemo } from 'react';
+import { Appearance } from 'react-native';
 import { darkColors, lightColors, ThemeColors } from './colors';
 import { fonts, fontSize } from './typography';
-import { spacing, radius, shadow } from './spacing';
+import { spacing, radius, shadow, sizes } from './spacing';
+import { usePrefsStore, type ThemeMode } from '@/store/prefs.store';
 
-type Mode = 'light' | 'dark';
-type Theme = { mode: Mode; colors: ThemeColors; fonts: typeof fonts; fontSize: typeof fontSize; spacing: typeof spacing; radius: typeof radius; shadow: typeof shadow };
+type Mode = ThemeMode;
+type Theme = { mode: Mode; colors: ThemeColors; fonts: typeof fonts; fontSize: typeof fontSize; spacing: typeof spacing; radius: typeof radius; shadow: typeof shadow; sizes: typeof sizes };
 type Ctx = Theme & { toggle: () => void; setMode: (m: Mode) => void };
 
-const KEY = 'theme-mode';
 const ThemeContext = createContext<Ctx | null>(null);
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-    const system = useColorScheme();
-    const [mode, setModeState] = useState<Mode>('dark'); // app is dark-first
+    const savedMode = usePrefsStore((state) => state.themeMode)
+    const updateMode = usePrefsStore((state) => state.setThemeMode)
+    const mode: Mode = savedMode ?? 'dark'
+    const hydrated = usePrefsStore((state) => state.hydrated)
 
     useEffect(() => {
-        AsyncStorage.getItem(KEY).then((v) => {
-            if (v === 'light' || v === 'dark') setModeState(v);
-            else if (system === 'light' || system === 'dark') setModeState(system);
-        });
-    }, [system]);
+        if (hydrated) Appearance.setColorScheme(mode)
+    }, [hydrated, mode])
 
-    const setMode = useCallback((m: Mode) => { setModeState(m); AsyncStorage.setItem(KEY, m); }, []);
+    const setMode = useCallback((value: Mode) => { updateMode(value) }, [updateMode]);
     const toggle = useCallback(() => setMode(mode === 'dark' ? 'light' : 'dark'), [mode, setMode]);
 
     const value = useMemo<Ctx>(() => ({
         mode, colors: mode === 'dark' ? darkColors : lightColors,
-        fonts, fontSize, spacing, radius, shadow, toggle, setMode,
+        fonts, fontSize, spacing, radius, shadow, sizes, toggle, setMode,
     }), [mode, toggle, setMode]);
 
     return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
@@ -39,4 +37,3 @@ export const useTheme = () => {
     if (!c) throw new Error('useTheme must be used inside ThemeProvider');
     return c;
 };
-
